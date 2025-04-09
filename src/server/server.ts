@@ -4,19 +4,17 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
   MessageType,
-  SemanticTokenTypes,
   InitializeParams,
   InitializeResult,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
-//import { Parser } from 'web-tree-sitter';
 import Parser from 'tree-sitter';
 
 import logger from "../utils/logger";
 import path from "path";
 
-logger.start();
+logger.info(".".repeat(30) + "Starting server" + ".".repeat(30));
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -30,13 +28,6 @@ documents.onDidOpen((event) => {
   });
 });
 
-documents.listen(connection);
-
-const tokenTypes = [
-  SemanticTokenTypes.parameter,
-  SemanticTokenTypes.variable
-]
-
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   return {
     capabilities: {
@@ -44,10 +35,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         openClose: true,
         change: TextDocumentSyncKind.Incremental
       },
-    semanticTokensProvider: {
+      semanticTokensProvider: {
         legend: {
-          tokenTypes,
-          tokenModifiers: []
+          tokenTypes: ['parameter'],
+          tokenModifiers: ['declaration', 'defaultLibrary']
         },
         full: true
       }
@@ -55,4 +46,5 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   }
 });
 
+documents.listen(connection);
 connection.listen();
