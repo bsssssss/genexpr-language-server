@@ -1,0 +1,5 @@
+add(x) {
+  return x + 1;
+}
+
+out1 = add(1);
