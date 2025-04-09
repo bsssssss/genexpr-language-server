@@ -6,27 +6,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_1 = require("vscode-languageserver/node");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const logger_1 = __importDefault(require("../utils/logger"));
-//////////////////////////////////////////////////////////////
-logger_1.default.start();
+/////////////////////////////////////////////////////////////////////////////////
+logger_1.default.info(".".repeat(30) + "Starting server" + ".".repeat(30));
 const connection = (0, node_1.createConnection)(node_1.ProposedFeatures.all);
 const documents = new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument);
 documents.onDidOpen((event) => {
-    logger_1.default.info("Genexpr buffer : " + event.document.uri);
+    logger_1.default.info("A document was opened: " + event.document.uri);
     connection.sendNotification('window/showMessage', {
         type: node_1.MessageType.Info,
-        message: "Lets GENerate sounds and stuff"
+        message: "Lets GENerate stuff"
     });
 });
-documents.listen(connection);
-connection.onInitialize(() => {
+connection.onInitialize((params) => {
     return {
         capabilities: {
             textDocumentSync: {
                 openClose: true,
                 change: node_1.TextDocumentSyncKind.Incremental
             },
-        }
+            semanticTokensProvider: {
+                legend: {
+                    tokenTypes: ['parameter'],
+                    tokenModifiers: ['declaration', 'defaultLibrary']
+                },
+                full: true
+            }
+        },
     };
 });
+documents.listen(connection);
 connection.listen();
 //# sourceMappingURL=server.js.map

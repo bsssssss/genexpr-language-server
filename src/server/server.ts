@@ -7,9 +7,8 @@ import {
   InitializeParams,
   InitializeResult,
 } from "vscode-languageserver/node";
-
 import { TextDocument } from "vscode-languageserver-textdocument";
-import Parser from 'tree-sitter';
+
 import logger from "../utils/logger";
 import path from "path";
 
