@@ -1,0 +1,25 @@
+{
+  "name": "genexpr_ls",
+  "version": "1.0.0",
+  "description": "Language server for Cycling 74's GenExpr language",
+  "main": "out/server/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "start": "node out/server/server.js"
+  },
+  "author": "Bss",
+  "license": "MIT",
+  "dependencies": {
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/emscripten": "^1.40.1",
+    "@types/node": "^22.14.0",
+    "tree-sitter": "^0.22.4",
+    "typescript": "^5.8.3",
+    "web-tree-sitter": "^0.25.3"
+  }
+}
