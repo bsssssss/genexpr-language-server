@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tokenTypesLegend = exports.TokenTypes = void 0;
+exports.tokenTypesLegend = exports.TokenModifiers = exports.TokenTypes = void 0;
 exports.getSemanticTokens = getSemanticTokens;
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
@@ -11,13 +11,16 @@ const tree_sitter_1 = __importDefault(require("tree-sitter"));
 const node_1 = require("vscode-languageserver/node");
 var TokenTypes;
 (function (TokenTypes) {
-    TokenTypes[TokenTypes["Parameter"] = 0] = "Parameter";
+    TokenTypes[TokenTypes["Function"] = 0] = "Function";
+    TokenTypes[TokenTypes["Parameter"] = 1] = "Parameter";
 })(TokenTypes || (exports.TokenTypes = TokenTypes = {}));
-//export enum TokenModifiers {
-//  Declaration,
-//  Definition
-//}
+var TokenModifiers;
+(function (TokenModifiers) {
+    TokenModifiers[TokenModifiers["Declaration"] = 0] = "Declaration";
+    TokenModifiers[TokenModifiers["Definition"] = 1] = "Definition";
+})(TokenModifiers || (exports.TokenModifiers = TokenModifiers = {}));
 exports.tokenTypesLegend = [
+    'function',
     'parameter'
 ];
 const parser = new tree_sitter_1.default();
@@ -33,41 +36,41 @@ const tree = parser.parse(testCode);
 function getSemanticTokens(text, tree) {
     const builder = new node_1.SemanticTokensBuilder();
     const lines = text.split('\n');
-    function traverseNode(node) {
-        const startPos = node.startPosition;
-        const endPos = node.endPosition;
+    function traverseTree(node) {
         switch (node.type) {
             case "function_declaration":
-                const name = node.childForFieldName('name');
-                if (name) {
-                    const nameStr = identifierToString(name);
-                    console.log(`Function name: ${nameStr}`);
+                const params = [];
+                for (const child of node.children) {
+                    if (child.type === 'identifier') {
+                        const str = getTextAtNode(child);
+                        console.log(`\nFunction name: ${str}`);
+                    }
+                    else if (child.type === 'function_declaration_parameter') {
+                        const str = getTextAtNode(child);
+                        params.push(str);
+                    }
                 }
-                const params = node.childrenForFieldName('parameters');
-                const paramsStr = [];
-                if (params) {
-                    for (const param of params) {
-                        const paramName = identifierToString(param);
-                        if (paramName !== ',') {
-                            console.log(`Param: ${paramName}`);
-                            paramsStr.push(paramName);
+                console.log(`Parameters: ${params.toString()}`);
+                const bodyChildren = node.childrenForFieldName('body');
+                console.log(`The body:\n${bodyChildren.toString()}`);
+                for (const bodyChild of bodyChildren) {
+                    if (bodyChild.type === 'expr_statement_list') {
+                        for (const exprChild of bodyChild.children) {
+                            console.log(`Expr child: ${exprChild}`);
                         }
                     }
                 }
                 break;
-            case 'identifier':
-                const parent = node.parent;
-                console.log(parent === null || parent === void 0 ? void 0 : parent.type);
         }
         // Recursively iterate through all children of rootNode
         for (const child of node.children) {
-            traverseNode(child);
+            traverseTree(child);
         }
     }
     // Start at root node
-    traverseNode(tree.rootNode);
+    traverseTree(tree.rootNode);
     // Get the matching string of an indentifier node
-    function identifierToString(node) {
+    function getTextAtNode(node) {
         const line = node.startPosition.row;
         const startChar = node.startPosition.column;
         const endChar = node.endPosition.column;

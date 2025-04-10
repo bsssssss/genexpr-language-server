@@ -4,15 +4,17 @@ import Parser from 'tree-sitter';
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 
 export enum TokenTypes {
+  Function,
   Parameter
 }
 
-//export enum TokenModifiers {
-//  Declaration,
-//  Definition
-//}
+export enum TokenModifiers {
+  Declaration,
+  Definition
+}
 
 export const tokenTypesLegend = [
+  'function',
   'parameter'
 ]
 
@@ -34,52 +36,46 @@ export function getSemanticTokens(text: string, tree: Parser.Tree) {
   const builder = new SemanticTokensBuilder();
   const lines: string[] = text.split('\n');
 
-  function traverseNode(node: Parser.SyntaxNode) {
-    const startPos = node.startPosition;
-    const endPos = node.endPosition;
-
+  function traverseTree(node: Parser.SyntaxNode) {
     switch (node.type) {
       case "function_declaration":
-        //const name = node.childForFieldName('name');
-        //if (name) {
-        //  const nameStr = identifierToString(name);
-        //  console.log(`Function name: ${nameStr}`);
-        //}
-        //
-        //const params = node.childrenForFieldName('parameters');
-        //const paramsStr: string[] = [];
-        //if (params) {
-        //  for (const param of params) {
-        //    const paramName = identifierToString(param);
-        //    if (paramName !== ',') {
-        //      console.log(`Param: ${paramName}`);
-        //      paramsStr.push(paramName);
-        //    }
-        //  }
-        //}
+        const params: string[] = [];
 
         for (const child of node.children) {
-          const type = child.type;
-          console.log(type);
+          if (child.type === 'identifier') {
+            const str = getTextAtNode(child);
+            console.log(`\nFunction name: ${str}`);
+          }
+          else if (child.type === 'function_declaration_parameter') {
+            const str = getTextAtNode(child);
+            params.push(str);
+          }
         }
-      break;
-      // TODO: identify function decl params with this 
-      //       and handle their use in the body
-      //case 'identifier':
-      //  const parent = node.parent;
-      //  console.log(parent?.type);
-    }
+        console.log(`Parameters: ${params.toString()}`);
+        const bodyChildren = node.childrenForFieldName('body');
+        console.log(`The body:\n${bodyChildren.toString()}`);
+        
+        for (const bodyChild of bodyChildren) {
+          if (bodyChild.type === 'expr_statement_list') {
+            for (const exprChild of bodyChild.children) {
+              console.log(`Expr child: ${exprChild}`);
+            }
+          }
 
+        }
+        break;
+    }
     // Recursively iterate through all children of rootNode
     for (const child of node.children) {
-      traverseNode(child);
+      traverseTree(child);
     }
+
   }
   // Start at root node
-  traverseNode(tree.rootNode);
+  traverseTree(tree.rootNode);
 
   // Get the matching string of an indentifier node
-  function identifierToString(node: Parser.SyntaxNode) {
+  function getTextAtNode(node: Parser.SyntaxNode) {
     const line = node.startPosition.row;
     const startChar = node.startPosition.column;
     const endChar = node.endPosition.column;

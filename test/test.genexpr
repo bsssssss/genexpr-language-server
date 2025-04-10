@@ -1,5 +1,7 @@
 add(x,y) {
-  return x + y;
+  v = x + y;
+  return v;
 }
 
 out1 = add(1,1);
+out2 = cycle(50);
