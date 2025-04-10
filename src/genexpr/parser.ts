@@ -27,6 +27,8 @@ const testFilePath = path.join(__dirname, "../../test/test.genexpr")
 const testCode = fs.readFileSync(testFilePath).toString();
 const tree = parser.parse(testCode);
 
+/////////////////////////////////////////////////////////////////////////////////
+
 export function getSemanticTokens(text: string, tree: Parser.Tree) {
   const builder = new SemanticTokensBuilder();
   // Start at root node
@@ -34,12 +36,23 @@ export function getSemanticTokens(text: string, tree: Parser.Tree) {
   return builder.build();
 }
 
-
 function traverseTree(node: Parser.SyntaxNode, text: string, builder: SemanticTokensBuilder) {
   if (node.type === 'function_declaration') {
-    console.log(node.text);
+    const params: string[] = [];
+    for (const paramNode of node.childrenForFieldName('parameters')) {
+      if (paramNode.type === 'function_declaration_parameter') {
+        params.push(paramNode.text);
+      }
+    }
+    console.log(`Params: ${params.toString()}`);
+
+    for (const bodyNode of node.childrenForFieldName('body')) {
+      if (bodyNode.type === 'expr_statement_list') {
+        console.log(`Body:\n${bodyNode.text}`);
+      }
+    }
   }
-  
+
   // Recursively iterate through all children of rootNode
   for (const child of node.children) {
     traverseTree(child, text, builder);
