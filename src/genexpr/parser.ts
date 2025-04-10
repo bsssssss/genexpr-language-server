@@ -40,29 +40,34 @@ export function getSemanticTokens(text: string, tree: Parser.Tree) {
 
     switch (node.type) {
       case "function_declaration":
-        const name = node.childForFieldName('name');
-        if (name) {
-          const nameStr = identifierToString(name);
-          console.log(`Function name: ${nameStr}`);
-        }
+        //const name = node.childForFieldName('name');
+        //if (name) {
+        //  const nameStr = identifierToString(name);
+        //  console.log(`Function name: ${nameStr}`);
+        //}
+        //
+        //const params = node.childrenForFieldName('parameters');
+        //const paramsStr: string[] = [];
+        //if (params) {
+        //  for (const param of params) {
+        //    const paramName = identifierToString(param);
+        //    if (paramName !== ',') {
+        //      console.log(`Param: ${paramName}`);
+        //      paramsStr.push(paramName);
+        //    }
+        //  }
+        //}
 
-        const params = node.childrenForFieldName('parameters');
-        const paramsStr: string[] = [];
-        if (params) {
-          for (const param of params) {
-            const paramName = identifierToString(param);
-            if (paramName !== ',') {
-              console.log(`Param: ${paramName}`);
-              paramsStr.push(paramName);
-            }
-          }
+        for (const child of node.children) {
+          const type = child.type;
+          console.log(type);
         }
       break;
       // TODO: identify function decl params with this 
       //       and handle their use in the body
-      case 'identifier':
-        const parent = node.parent;
-        console.log(parent?.type);
+      //case 'identifier':
+      //  const parent = node.parent;
+      //  console.log(parent?.type);
     }
 
     // Recursively iterate through all children of rootNode
