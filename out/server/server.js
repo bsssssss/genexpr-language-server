@@ -35,9 +35,12 @@ connection.onInitialize((params) => {
         },
     };
 });
-documents.onDidChangeContent((event) => {
-    const doc = event.document;
-    (0, parser_1.getSemanticTokens)(doc);
+connection.languages.semanticTokens.on((params) => {
+    const genexprDocument = documents.get(params.textDocument.uri);
+    if (!genexprDocument) {
+        return { data: [] };
+    }
+    return (0, parser_1.getSemanticTokens)(genexprDocument);
 });
 documents.listen(connection);
 connection.listen();

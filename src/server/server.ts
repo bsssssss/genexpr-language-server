@@ -10,8 +10,7 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import logger from "../utils/logger";
-import path from "path";
-import { getSemanticTokens, TokenTypes, tokenTypesLegend } from "../genexpr/parser";
+import { getSemanticTokens, tokenTypesLegend } from "../genexpr/parser";
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -47,9 +46,12 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   }
 });
 
-documents.onDidChangeContent((event) => {
-  const doc = event.document;
-  getSemanticTokens(doc);
+connection.languages.semanticTokens.on((params) => {
+  const genexprDocument = documents.get(params.textDocument.uri);
+  if (!genexprDocument) {
+    return {data: []};
+  }
+  return getSemanticTokens(genexprDocument);
 })
 
 documents.listen(connection);
