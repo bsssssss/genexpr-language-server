@@ -36,6 +36,20 @@ export function getSemanticTokens(text: string, tree: Parser.Tree) {
   return builder.build();
 }
 
+function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
+  let identifiers: Parser.SyntaxNode[] = [];
+
+  if (node.type === 'identifier') {
+    identifiers.push(node);
+  }
+  for (const child of node.children) {
+    if (child) {
+      identifiers = identifiers.concat(collectIdentifiers(child));
+    }
+  }
+  return identifiers;
+}
+
 function traverseTree(node: Parser.SyntaxNode, text: string, builder: SemanticTokensBuilder) {
   if (node.type === 'function_declaration') {
     const params: string[] = [];
