@@ -1,6 +1,5 @@
 add(x,y) {
-  v = x + y;
-  return v;
+  return x + y;
 }
 
 out1 = add(1,1);

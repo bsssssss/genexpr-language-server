@@ -11,6 +11,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 
 import logger from "../utils/logger";
 import path from "path";
+import { getSemanticTokens, TokenTypes, tokenTypesLegend } from "../genexpr/parser";
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -37,14 +38,19 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       semanticTokensProvider: {
         legend: {
-          tokenTypes: ['parameter'],
-          tokenModifiers: ['declaration', 'defaultLibrary']
+          tokenTypes: tokenTypesLegend,
+          tokenModifiers: []
         },
         full: true
       }
     },
   }
 });
+
+documents.onDidChangeContent((event) => {
+  const doc = event.document;
+  getSemanticTokens(doc);
+})
 
 documents.listen(connection);
 connection.listen();

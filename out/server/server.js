@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_1 = require("vscode-languageserver/node");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const logger_1 = __importDefault(require("../utils/logger"));
+const parser_1 = require("../genexpr/parser");
 /////////////////////////////////////////////////////////////////////////////////
 logger_1.default.info(".".repeat(30) + "Starting server" + ".".repeat(30));
 const connection = (0, node_1.createConnection)(node_1.ProposedFeatures.all);
@@ -26,13 +27,17 @@ connection.onInitialize((params) => {
             },
             semanticTokensProvider: {
                 legend: {
-                    tokenTypes: ['parameter'],
-                    tokenModifiers: ['declaration', 'defaultLibrary']
+                    tokenTypes: parser_1.tokenTypesLegend,
+                    tokenModifiers: []
                 },
                 full: true
             }
         },
     };
+});
+documents.onDidChangeContent((event) => {
+    const doc = event.document;
+    (0, parser_1.getSemanticTokens)(doc);
 });
 documents.listen(connection);
 connection.listen();
