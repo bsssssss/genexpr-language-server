@@ -1,5 +1,4 @@
 import path from 'path';
-import fs from 'fs';
 import Parser from 'tree-sitter';
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -32,30 +31,34 @@ parser.setLanguage(GenExpr);
 export function getSemanticTokens(document: TextDocument) {
   const tree = parser.parse(document.getText());
   const builder = new SemanticTokensBuilder();
+
   // Start at root node
   traverseTree(tree.rootNode, builder);
   return builder.build();
 }
 
 function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
+  // What to do if we are in a function declaration
   if (node.type === 'function_declaration') {
+    // Gather the parameters definitions (as text) in an array
     const params: string[] = [];
     for (const paramNode of node.childrenForFieldName('parameters')) {
       if (paramNode.type === 'function_declaration_parameter') {
         params.push(paramNode.text);
       }
     }
-    //console.log(`Params: ${params.toString()}`);
 
+    // Iterate through all children of the function's body node
     for (const bodyNode of node.childrenForFieldName('body')) {
+      // Collect all the identifiers nodes
       let identifiersInBody: Parser.SyntaxNode[] = [];
       if (bodyNode.type === 'expr_statement_list') {
         identifiersInBody = collectIdentifiers(bodyNode);
       }
 
       for (const identifierInBody of identifiersInBody) {
+        // If the identifier (as text) is defined, add it as a parameter token
         if (params.includes(identifierInBody.text)) {
-          //console.log(`Found match in body: ${identifierInBody.text}`);
           builder.push(
             identifierInBody.startPosition.row,
             identifierInBody.startPosition.column,
@@ -73,6 +76,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
   }
 }
 
+// Recursively look for all nodes named identifier in nested nodes
 function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   let identifiers: Parser.SyntaxNode[] = [];
   if (node.type === 'identifier') {
@@ -85,5 +89,3 @@ function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   }
   return identifiers;
 }
-
-//getSemanticTokens(testCode, tree);
