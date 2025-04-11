@@ -9,7 +9,7 @@ It is also a good way to learn more about LSPs and programming in Typescript !
 
 For now there is just a working connection and a bit of semantic typing.
 
-## Installation 
+## Prerequisites
 
 To install and run this you need:
 
@@ -25,6 +25,8 @@ https://github.com/sadguitarius/tree-sitter-genexpr
 
 There is also my fork with some modificated highlightings: 
 https://github.com/bsssssss/tree-sitter-genexpr
+
+## Installation 
 
 When you're all set clone the repository
 
