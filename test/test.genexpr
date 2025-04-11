@@ -1,5 +1,6 @@
-add(x,y) {
-  return x + y;
+add(x,y){
+  z = 2;
+  return x + y + z;
 }
 
 out1 = add(1,1);
