@@ -20,8 +20,11 @@ To install and run this you need:
 You also need tree-sitter-genexpr to get syntax highlightings.
 the server also relies on this to help with syntax structure.
 
-You can find it here: https://github.com/sadguitarius/tree-sitter-genexpr
-There is also my fork with some modificated highlightings: https://github.com/bsssssss/tree-sitter-genexpr
+You can find it here: 
+https://github.com/sadguitarius/tree-sitter-genexpr
+
+There is also my fork with some modificated highlightings: 
+https://github.com/bsssssss/tree-sitter-genexpr
 
 When you're all set clone the repository
 
