@@ -22,6 +22,7 @@ the server also relies on this to help with syntax structure.
 
 You can find it here: 
 https://github.com/sadguitarius/tree-sitter-genexpr
+
 There is also my fork with some modificated highlightings: 
 https://github.com/bsssssss/tree-sitter-genexpr
 
