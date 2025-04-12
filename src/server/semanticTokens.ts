@@ -6,7 +6,8 @@ import { parser } from './parser';
 export enum TokenTypes {
   Function,
   Parameter,
-  Variable
+  Variable,
+  Constant
 }
 
 export enum TokenModifiers {
@@ -18,13 +19,18 @@ export enum TokenModifiers {
 export const tokenTypesLegend = [
   'function',
   'parameter',
-  'variable'
+  'variable',
+  'constant'
 ]
 
 export const tokenModifiersLegend = [
   'declaration',
   'definition',
   'external'
+]
+
+const genConstants = [
+  'samplerate'
 ]
 
 let genParams: string[] = []
@@ -126,6 +132,17 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
           )
         })
       break;
+
+    case 'identifier':
+      if (genConstants.includes(node.text)) {
+        builder.push(
+          node.startPosition.row,
+          node.startPosition.column,
+          node.text.length,
+          TokenTypes.Constant,
+          0
+        )
+      } 
   }
   // Recursively iterate through all children of rootNode
   for (const child of node.children) {
