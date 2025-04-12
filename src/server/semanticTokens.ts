@@ -1,7 +1,7 @@
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import Parser from 'tree-sitter';
-import { parser } from './parser';
+import { parser, treeManager } from './parser';
 
 export enum TokenTypes {
   Function,
@@ -37,6 +37,7 @@ let genParams: string[] = []
 
 export function getSemanticTokens(document: TextDocument) {
   const tree = parser.parse(document.getText());
+  //const tree = treeManager.parseDocument(document);
   const builder = new SemanticTokensBuilder();
 
   genParams = [];
