@@ -2,20 +2,14 @@ import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import Parser from 'tree-sitter';
 import { parser, treeManager } from './parser';
+import { genConstants, genObjects } from './genlib';
 
 export enum TokenTypes {
   Function,
   Parameter,
   Variable,
-  Constant
+  Constant,
 }
-
-export enum TokenModifiers {
-  Declaration,
-  Definition,
-  External
-}
-
 export const tokenTypesLegend = [
   'function',
   'parameter',
@@ -23,14 +17,17 @@ export const tokenTypesLegend = [
   'constant'
 ]
 
+export enum TokenModifiers {
+  Declaration,
+  Definition,
+  External,
+  Builtin
+}
 export const tokenModifiersLegend = [
   'declaration',
   'definition',
-  'external'
-]
-
-const genConstants = [
-  'samplerate'
+  'external',
+  'builtin'
 ]
 
 let genParams: string[] = []
@@ -48,7 +45,9 @@ export function getSemanticTokens(document: TextDocument) {
 
 function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
   switch (node.type) {
+    // Handle function definitions
     case 'function_declaration':
+      // Tokenize function definition name
       const funcName = node.childForFieldName('name');
       if (funcName) {
         builder.push(
@@ -59,22 +58,23 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
           1 << TokenModifiers.Definition
         )
       }
-      // Gather the parameters definitions (as text) in an array
+      // Collect parameters definition as text
       const params: string[] = [];
       for (const paramNode of node.childrenForFieldName('parameters')) {
         if (paramNode.type === 'function_declaration_parameter') {
           params.push(paramNode.text);
         }
       }
-      // Iterate through all children of the function body node
+      // Iterate through all children of function body node
       for (const bodyNode of node.childrenForFieldName('body')) {
-        // Collect all the identifiers nodes & iterate
+        // Collect all identifier nodes
         let identifiersInBody: Parser.SyntaxNode[] = [];
         if (bodyNode.type === 'expr_statement_list') {
           identifiersInBody = collectIdentifiers(bodyNode);
         }
+        // Iterate through them
         for (const identifierInBody of identifiersInBody) {
-          // If the identifier (as text) is defined, add it as a parameter token
+          // Tokenize parameter if defined
           if (params.includes(identifierInBody.text)) {
             builder.push(
               identifierInBody.startPosition.row,
@@ -89,9 +89,11 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
       break;
 
     case 'declaration':
+      // Handle gen's external param declarations
       const isParamDecl = node.firstChild?.text === 'Param';
       if (isParamDecl) {
         for (const child of node.children) {
+          // Tokenize parameters of Param declaration (min and max)
           if (child.type === 'call_member_expression') {
             child.children.filter(child => child.type === 'identifier')
               .forEach(param => {
@@ -106,6 +108,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
                 }
               })
           }
+          // Tokenize name of Param declaration and add to global array
           else if (child.type === 'identifier') {
             builder.push(
               child.startPosition.row,
@@ -121,6 +124,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
       break;
 
     case 'statement':
+      // Tokenize references to declared Param names
       let ids = collectIdentifiers(node);
       ids.filter(id => genParams.includes(id.text))
         .forEach(id => {
@@ -135,6 +139,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
       break;
 
     case 'identifier':
+      // Tokenize builtin constants
       if (genConstants.includes(node.text)) {
         builder.push(
           node.startPosition.row,
@@ -143,19 +148,31 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
           TokenTypes.Constant,
           0
         )
-      } 
+      }
+      // Tokenize gen objects
+      else {
+        const isGenObj = node.parent?.childForFieldName('object') && genObjects.includes(node.text);
+        if (isGenObj) {
+          builder.push(
+            node.startPosition.row,
+            node.startPosition.column,
+            node.text.length,
+            TokenTypes.Function,
+            1 << TokenModifiers.Builtin
+          )
+        }
+      }
   }
-  // Recursively iterate through all children of rootNode
+  // Recursive call
   for (const child of node.children) {
     traverseTree(child, builder);
   }
 }
 
-// Recursively look for all identifier nodes in a node and collect them in an array
+// Recursively collect all identifier nodes
 function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   let identifiers: Parser.SyntaxNode[] = [];
   if (node.type === 'identifier') {
-    //console.log(`Found identifier: ${node.text}`)
     identifiers.push(node);
   }
   for (const child of node.children) {
