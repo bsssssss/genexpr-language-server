@@ -27,10 +27,13 @@ export const tokenModifiersLegend = [
   'external'
 ]
 
+let genParams: string[] = []
+
 export function getSemanticTokens(document: TextDocument) {
   const tree = parser.parse(document.getText());
   const builder = new SemanticTokensBuilder();
 
+  genParams = [];
   // Start at root node
   traverseTree(tree.rootNode, builder);
   return builder.build();
@@ -46,7 +49,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
           funcName.startPosition.column,
           funcName.text.length,
           TokenTypes.Function,
-          TokenModifiers.Definition
+          1 << TokenModifiers.Definition
         )
       }
       // Gather the parameters definitions (as text) in an array
@@ -77,6 +80,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
         }
       }
       break;
+
     case 'declaration':
       const isParamDecl = node.firstChild?.text === 'Param';
       if (isParamDecl) {
@@ -101,13 +105,26 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
               child.startPosition.column,
               child.text.length,
               TokenTypes.Variable,
-              TokenModifiers.External
+              1 << TokenModifiers.External
             )
+            genParams.push(child.text);
           }
         }
-
-
       }
+      break;
+
+    case 'statement':
+      let ids = collectIdentifiers(node);
+      ids.filter(id => genParams.includes(id.text))
+        .forEach(id => {
+          builder.push(
+            id.startPosition.row,
+            id.startPosition.column,
+            id.text.length,
+            TokenTypes.Variable,
+            1 << TokenModifiers.External
+          )
+        })
       break;
   }
   // Recursively iterate through all children of rootNode
@@ -120,6 +137,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
 function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   let identifiers: Parser.SyntaxNode[] = [];
   if (node.type === 'identifier') {
+    //console.log(`Found identifier: ${node.text}`)
     identifiers.push(node);
   }
   for (const child of node.children) {

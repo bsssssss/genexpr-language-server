@@ -28,24 +28,6 @@ documents.onDidOpen((event) => {
   });
 });
 
-//connection.onInitialize((params: InitializeParams): InitializeResult => {
-//  return {
-//    capabilities: {
-//      textDocumentSync: {
-//        openClose: true,
-//        change: TextDocumentSyncKind.Incremental
-//      },
-//      semanticTokensProvider: {
-//        legend: {
-//          tokenTypes: tokenTypesLegend,
-//          tokenModifiers: []
-//        },
-//        full: true
-//      }
-//    },
-//  }
-//});
-
 connection.onInitialize((params: InitializeParams) => {
   let capabilities = params.capabilities;
   //console.log(capabilities);
