@@ -10,7 +10,7 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import logger from "../utils/logger";
-import { getSemanticTokens, tokenTypesLegend } from "../genexpr/parser";
+import { getSemanticTokens, tokenModifiersLegend, tokenTypesLegend } from "./semanticTokens";
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -28,8 +28,29 @@ documents.onDidOpen((event) => {
   });
 });
 
-connection.onInitialize((params: InitializeParams): InitializeResult => {
-  return {
+//connection.onInitialize((params: InitializeParams): InitializeResult => {
+//  return {
+//    capabilities: {
+//      textDocumentSync: {
+//        openClose: true,
+//        change: TextDocumentSyncKind.Incremental
+//      },
+//      semanticTokensProvider: {
+//        legend: {
+//          tokenTypes: tokenTypesLegend,
+//          tokenModifiers: []
+//        },
+//        full: true
+//      }
+//    },
+//  }
+//});
+
+connection.onInitialize((params: InitializeParams) => {
+  let capabilities = params.capabilities;
+  //console.log(capabilities);
+
+  const result: InitializeResult = {
     capabilities: {
       textDocumentSync: {
         openClose: true,
@@ -38,18 +59,19 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       semanticTokensProvider: {
         legend: {
           tokenTypes: tokenTypesLegend,
-          tokenModifiers: []
+          tokenModifiers: tokenModifiersLegend
         },
         full: true
       }
     },
   }
-});
+  return result;
+})
 
 connection.languages.semanticTokens.on((params) => {
   const genexprDocument = documents.get(params.textDocument.uri);
   if (!genexprDocument) {
-    return {data: []};
+    return { data: [] };
   }
   return getSemanticTokens(genexprDocument);
 })
