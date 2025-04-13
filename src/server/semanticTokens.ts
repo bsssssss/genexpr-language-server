@@ -2,35 +2,40 @@ import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import Parser from 'tree-sitter';
 import { parser, treeManager } from './parser';
-import { genConstants, genObjects } from './genlib';
+import { genConstants, genObjects, genObjectsRef } from './genlib';
 
 export enum TokenTypes {
   Function,
   Parameter,
   Variable,
   Constant,
+  Object,
+  Attribute
 }
 export const tokenTypesLegend = [
   'function',
   'parameter',
   'variable',
-  'constant'
+  'constant',
+  'object',
+  'attribute'
 ]
 
 export enum TokenModifiers {
   Declaration,
   Definition,
-  External,
+  Special,
   Builtin
 }
 export const tokenModifiersLegend = [
   'declaration',
   'definition',
-  'external',
+  'special',
   'builtin'
 ]
 
 let genParams: string[] = []
+let genSpecialVars: string[] = []
 
 export function getSemanticTokens(document: TextDocument) {
   const tree = parser.parse(document.getText());
@@ -38,6 +43,7 @@ export function getSemanticTokens(document: TextDocument) {
   const builder = new SemanticTokensBuilder();
 
   genParams = [];
+  genSpecialVars = [];
   // Start at root node
   traverseTree(tree.rootNode, builder);
   return builder.build();
@@ -89,51 +95,51 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
       break;
 
     case 'declaration':
-      // Handle gen's external param declarations
-      const isParamDecl = node.firstChild?.text === 'Param';
-      if (isParamDecl) {
+      // Handle gen's 'special' objects declarations (ref in genlib.ts)
+      const isSpecial = node.firstChild?.type === 'type_specifier';
+      const specialType = node.firstChild?.text;
+      if (isSpecial) {
         for (const child of node.children) {
-          // Tokenize parameters of Param declaration (min and max)
-          if (child.type === 'call_member_expression') {
-            child.children.filter(child => child.type === 'identifier')
-              .forEach(param => {
-                if (param.text === 'min' || param.text === 'max') {
-                  builder.push(
-                    param.startPosition.row,
-                    param.startPosition.column,
-                    param.text.length,
-                    TokenTypes.Parameter,
-                    0
-                  )
-                }
-              })
-          }
-          // Tokenize name of Param declaration and add to global array
-          else if (child.type === 'identifier') {
+          // Tokenize names of special declarations and add to global array
+          if (child.type === 'identifier') {
             builder.push(
               child.startPosition.row,
               child.startPosition.column,
               child.text.length,
               TokenTypes.Variable,
-              1 << TokenModifiers.External
+              1 << TokenModifiers.Special
             )
-            genParams.push(child.text);
+            genSpecialVars.push(child.text);
+          }
+          // Tokenize attributes
+          // TODO: check if attribute is listed for this object
+          else if (child.type === 'call_member_expression') {
+            child.children.filter(child => child.type === 'identifier')
+              .forEach(attr => {
+                builder.push(
+                  attr.startPosition.row,
+                  attr.startPosition.column,
+                  attr.text.length,
+                  TokenTypes.Attribute,
+                  0
+                )
+              })
           }
         }
       }
       break;
 
     case 'statement':
-      // Tokenize references to declared Param names
+      // Tokenize references to declared Special object names
       let ids = collectIdentifiers(node);
-      ids.filter(id => genParams.includes(id.text))
+      ids.filter(id => genSpecialVars.includes(id.text))
         .forEach(id => {
           builder.push(
             id.startPosition.row,
             id.startPosition.column,
             id.text.length,
             TokenTypes.Variable,
-            1 << TokenModifiers.External
+            1 << TokenModifiers.Special
           )
         })
       break;
@@ -149,18 +155,16 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
           0
         )
       }
-      // Tokenize gen objects
-      else {
-        const isGenObj = node.parent?.childForFieldName('object') && genObjects.includes(node.text);
-        if (isGenObj) {
-          builder.push(
-            node.startPosition.row,
-            node.startPosition.column,
-            node.text.length,
-            TokenTypes.Function,
-            1 << TokenModifiers.Builtin
-          )
-        }
+      // Tokenize gen objects if listed in genlib.ts
+      const isGenObj = node.parent?.childForFieldName('object') && (genObjects.has(node.text) || genObjectsRef.includes(node.text));
+      if (isGenObj) {
+        builder.push(
+          node.startPosition.row,
+          node.startPosition.column,
+          node.text.length,
+          TokenTypes.Object,
+          1 << TokenModifiers.Builtin
+        )
       }
   }
   // Recursive call
@@ -169,7 +173,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
   }
 }
 
-// Recursively collect all identifier nodes
+// Recursively collect all identifier nodes in node
 function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   let identifiers: Parser.SyntaxNode[] = [];
   if (node.type === 'identifier') {
