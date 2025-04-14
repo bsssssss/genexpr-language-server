@@ -104,7 +104,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
             // Tokenize references to special variable names
             // Seems to push multiple times per variable in a if statement 
             else if (typeSpecifiersNames.includes(identifierInBody.text)) {
-              console.log(`Found identifier matching special var: ${identifierInBody.text}`)
+              //console.log(`Found identifier matching special var: ${identifierInBody.text}`)
               builder.push(
                 identifierInBody.startPosition.row,
                 identifierInBody.startPosition.column,
