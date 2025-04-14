@@ -6,10 +6,20 @@ import { VisitorContext } from "./visitors/types";
 import { parser } from "./parser-config";
 import { visitorRegistry } from "./visitors";
 import { funcNames } from "./semanticTokens";
+import { functionDeclRegistry } from "./visitors/function-declaration-visitor";
+import logger from "../utils/logger";
 
 /////////////////////////////////////////////////////////////////////////////////
 
-export function processDocument(document: TextDocument) {
+/**
+ * @description Parse a document using the tree-sitter library
+ *
+ * @param {TextDocument} document The document to parse
+ *
+ * @returns An object with the analysis result:
+ * @returns {SemanticTokens} returns.semanticTokens - Built semantic tokens for syntax highlighting
+ */
+export function parseDocument(document: TextDocument) {
 
   const tree = parser.parse(document.getText());
   const tokensBuilder = new SemanticTokensBuilder();
@@ -18,15 +28,22 @@ export function processDocument(document: TextDocument) {
     semanticTokensContext: tokensBuilder
   }
 
-  funcNames = [];
+  functionDeclRegistry.clear();
 
   traverseTree(tree.rootNode, context);
+
+  const funcNames = functionDeclRegistry.getNames();
+  logger.debug(`Collected function declaration names: ${funcNames.toString()}`);
+  logger.emptyLine();
 
   return {
     semanticTokens: tokensBuilder.build()
   }
 }
 
+/**
+ * @description Recursively traverse the syntax tree and visit nodes if registered in visitorRegistry
+ */
 function traverseTree(node: Parser.SyntaxNode, context: VisitorContext) {
   const visitor = visitorRegistry[node.type];
   if (visitor) {

@@ -11,11 +11,11 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 
 import logger from "../utils/logger";
 import { tokenModifiersLegend, tokenTypesLegend } from "../parser/semanticTokens";
-import { processDocument } from "../parser/parser";
+import { parseDocument } from "../parser/parser";
 
 /////////////////////////////////////////////////////////////////////////////////
 
-logger.emptyLine();
+logger.emptyLine(4);
 logger.info(".".repeat(30) + "Starting server" + ".".repeat(30));
 
 const connection = createConnection(ProposedFeatures.all);
@@ -61,7 +61,7 @@ connection.languages.semanticTokens.on((params) => {
     return { data: [] };
   }
 
-  const result = processDocument(doc);
+  const result = parseDocument(doc);
   return result.semanticTokens;
 })
 

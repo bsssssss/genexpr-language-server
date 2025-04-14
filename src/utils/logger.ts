@@ -42,8 +42,9 @@ export class Logger {
     fs.appendFileSync(this.config.filePath, msg);
   }
 
-  emptyLine(): void {
-    fs.appendFileSync(this.config.filePath, "\n");
+  emptyLine(lines?: number): void {
+    const lineN = lines ? lines : 1 ;
+    fs.appendFileSync(this.config.filePath, "\n".repeat(lineN));
   }
 
   start(): void {
