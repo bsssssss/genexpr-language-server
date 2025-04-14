@@ -42,6 +42,10 @@ export class Logger {
     fs.appendFileSync(this.config.filePath, msg);
   }
 
+  emptyLine(): void {
+    fs.appendFileSync(this.config.filePath, "\n");
+  }
+
   start(): void {
     this.write("=".repeat(15) + " Server started " + "=".repeat(15), LogLevel.START);
   }

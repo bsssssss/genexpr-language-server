@@ -10,10 +10,12 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import logger from "../utils/logger";
-import { getSemanticTokens, tokenModifiersLegend, tokenTypesLegend } from "./semanticTokens";
+import { tokenModifiersLegend, tokenTypesLegend } from "../parser/semanticTokens";
+import { processDocument } from "../parser/parser";
 
 /////////////////////////////////////////////////////////////////////////////////
 
+logger.emptyLine();
 logger.info(".".repeat(30) + "Starting server" + ".".repeat(30));
 
 const connection = createConnection(ProposedFeatures.all);
@@ -50,12 +52,16 @@ connection.onInitialize((params: InitializeParams) => {
   return result;
 })
 
+
+
 connection.languages.semanticTokens.on((params) => {
-  const genexprDocument = documents.get(params.textDocument.uri);
-  if (!genexprDocument) {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) {
     return { data: [] };
   }
-  return getSemanticTokens(genexprDocument);
+
+  const result = processDocument(doc);
+  return result.semanticTokens;
 })
 
 documents.listen(connection);

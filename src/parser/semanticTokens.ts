@@ -1,8 +1,9 @@
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import Parser from 'tree-sitter';
-import { parser } from './parser';
-import { genConstants, genObjects, genObjectsRef } from './genlib';
+import { parser } from './parser-config';
+import { visitorRegistry } from './visitors';
+import logger from '../utils/logger';
 
 export enum TokenTypes {
   Function,
@@ -34,21 +35,9 @@ export const tokenModifiersLegend = [
   'builtin'
 ]
 
-export function getSemanticTokens(document: TextDocument) {
-  const tree = parser.parse(document.getText());
-  const builder = new SemanticTokensBuilder();
-
-  // Start at root node
-  traverseTree(tree.rootNode, builder);
-  return builder.build();
-}
-
-function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
-
-  // Recursive call
-  for (const child of node.children) {
-    traverseTree(child, builder);
-  }
+export function processTokens(node: Parser.SyntaxNode) {
+  logger.debug(`Processing tokens in ${node.type} node...\n`);
+  
 }
 
 // Recursively collect all identifier nodes in node
