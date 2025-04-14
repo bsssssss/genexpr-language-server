@@ -54,7 +54,6 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
     // Handle function definitions
     case 'function_declaration':
       // Tokenize function definition name
-      const typeSpecifiersNames: string[] = [];
       const funcName = node.childForFieldName('name');
       if (funcName) {
         builder.push(
@@ -74,6 +73,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
       }
       // Iterate through all children of function body node
       const bodyNode = node.childForFieldName('body');
+      const typeSpecifiersNames: string[] = [];
       if (bodyNode) {
         for (const body of bodyNode.children) {
           // collect special objects names
@@ -101,7 +101,10 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
                 0
               )
             }
+            // Tokenize references to special variable names
+            // Seems to push multiple times per variable in a if statement 
             else if (typeSpecifiersNames.includes(identifierInBody.text)) {
+              console.log(`Found identifier matching special var: ${identifierInBody.text}`)
               builder.push(
                 identifierInBody.startPosition.row,
                 identifierInBody.startPosition.column,
