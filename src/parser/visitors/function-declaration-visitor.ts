@@ -14,26 +14,25 @@ export class FunctionDeclVisitor implements NodeVisitor {
       //logger.debug(`Processing ${node.type} node for tokens..`);
       const funcName = node.childForFieldName('name');
       if (funcName) {
-        logger.info(`Adding name '${funcName.text}' to registry`)
-        functionDeclRegistry.add(funcName.text);
+        funcDefRegistry.add(funcName.text);
       }
     }
   }
 }
 
-export class FunctionDeclRegistry {
-  private static instance: FunctionDeclRegistry;
+export class FuncDefRegistry {
+  private static instance: FuncDefRegistry;
 
   private funcNames: string[] = [];
 
   // Make sure we have only one instance
   private constructor() { };
 
-  public static getInstance(): FunctionDeclRegistry {
-    if (!FunctionDeclRegistry.instance) {
-      FunctionDeclRegistry.instance = new FunctionDeclRegistry();
+  public static getInstance(): FuncDefRegistry {
+    if (!FuncDefRegistry.instance) {
+      FuncDefRegistry.instance = new FuncDefRegistry();
     }
-    return FunctionDeclRegistry.instance
+    return FuncDefRegistry.instance
   }
 
   /**
@@ -50,7 +49,10 @@ export class FunctionDeclRegistry {
    */
   public add(name: string) {
     if (!this.funcNames.includes(name)) {
+      logger.info(`Adding name '${name}' to registry`)
       this.funcNames.push(name);
+    } else {
+      logger.info(`Name '${name}' already stored !`)
     }
   }
 
@@ -67,4 +69,4 @@ export class FunctionDeclRegistry {
 /**
  * @description The instance of the function declarations registry
  */
-export const functionDeclRegistry = FunctionDeclRegistry.getInstance();
+export const funcDefRegistry = FuncDefRegistry.getInstance();
