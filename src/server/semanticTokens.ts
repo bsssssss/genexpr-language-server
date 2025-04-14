@@ -54,6 +54,7 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
     // Handle function definitions
     case 'function_declaration':
       // Tokenize function definition name
+      const typeSpecifiersNames: string[] = [];
       const funcName = node.childForFieldName('name');
       if (funcName) {
         builder.push(
@@ -72,23 +73,43 @@ function traverseTree(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
         }
       }
       // Iterate through all children of function body node
-      for (const bodyNode of node.childrenForFieldName('body')) {
-        // Collect all identifier nodes
-        let identifiersInBody: Parser.SyntaxNode[] = [];
-        if (bodyNode.type === 'expr_statement_list') {
-          identifiersInBody = collectIdentifiers(bodyNode);
-        }
-        // Iterate through them
-        for (const identifierInBody of identifiersInBody) {
-          // Tokenize parameter if defined
-          if (params.includes(identifierInBody.text)) {
-            builder.push(
-              identifierInBody.startPosition.row,
-              identifierInBody.startPosition.column,
-              identifierInBody.text.length,
-              TokenTypes.Parameter,
-              0
-            )
+      const bodyNode = node.childForFieldName('body');
+      if (bodyNode) {
+        for (const body of bodyNode.children) {
+          // collect special objects names
+          if (body.type === 'declaration') {
+            body.children.forEach(x => {
+              if (x.type === 'identifier') {
+                typeSpecifiersNames.push(x.text);
+              }
+            })
+          }
+          // Collect all identifier nodes in statements
+          let identifiersInBody: Parser.SyntaxNode[] = [];
+          if (body.type === 'expr_statement_list') {
+            identifiersInBody = collectIdentifiers(body);
+          }
+          // Iterate through them
+          for (const identifierInBody of identifiersInBody) {
+            // Tokenize parameter if defined
+            if (params.includes(identifierInBody.text)) {
+              builder.push(
+                identifierInBody.startPosition.row,
+                identifierInBody.startPosition.column,
+                identifierInBody.text.length,
+                TokenTypes.Parameter,
+                0
+              )
+            }
+            else if (typeSpecifiersNames.includes(identifierInBody.text)) {
+              builder.push(
+                identifierInBody.startPosition.row,
+                identifierInBody.startPosition.column,
+                identifierInBody.text.length,
+                TokenTypes.Variable,
+                1 << TokenModifiers.Special
+              )
+            }
           }
         }
       }
