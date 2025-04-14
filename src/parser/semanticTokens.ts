@@ -1,8 +1,5 @@
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import Parser from 'tree-sitter';
-import { parser } from './parser-config';
-import { visitorRegistry } from './visitors';
 import logger from '../utils/logger';
 
 export enum TokenTypes {
@@ -35,13 +32,26 @@ export const tokenModifiersLegend = [
   'builtin'
 ]
 
-export function processTokens(node: Parser.SyntaxNode) {
+export let funcNames: string[] = [];
+
+export function processTokens(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
   logger.debug(`Processing tokens in ${node.type} node...\n`);
   
+  return builder.build();
+}
+
+export function addToken(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, type: TokenTypes, modifier: TokenModifiers) {
+  builder.push(
+    node.startPosition.row,
+    node.startPosition.column,
+    node.text.length,
+    type,
+    1 << modifier
+  )
 }
 
 // Recursively collect all identifier nodes in node
-function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
+export function collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
   let identifiers: Parser.SyntaxNode[] = [];
   if (node.type === 'identifier') {
     identifiers.push(node);

@@ -5,17 +5,23 @@ import Parser from "tree-sitter";
 import { VisitorContext } from "./visitors/types";
 import { parser } from "./parser-config";
 import { visitorRegistry } from "./visitors";
+import { funcNames } from "./semanticTokens";
 
 /////////////////////////////////////////////////////////////////////////////////
 
 export function processDocument(document: TextDocument) {
+
   const tree = parser.parse(document.getText());
   const tokensBuilder = new SemanticTokensBuilder();
+
   const context: VisitorContext = {
     semanticTokensContext: tokensBuilder
   }
 
+  funcNames = [];
+
   traverseTree(tree.rootNode, context);
+
   return {
     semanticTokens: tokensBuilder.build()
   }

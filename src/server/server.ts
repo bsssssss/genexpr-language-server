@@ -24,10 +24,11 @@ const documents = new TextDocuments(TextDocument);
 documents.onDidOpen((event) => {
   logger.info("A document was opened: " + event.document.uri);
 
-  connection.sendNotification('window/showMessage', {
-    type: MessageType.Info,
-    message: "Lets GENerate stuff"
-  });
+  // Greetings 
+  //connection.sendNotification('window/showMessage', {
+  //  type: MessageType.Info,
+  //  message: "Lets GENerate stuff"
+  //});
 });
 
 connection.onInitialize((params: InitializeParams) => {
