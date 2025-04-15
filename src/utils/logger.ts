@@ -37,8 +37,18 @@ export class Logger {
 
     const levelStr = LogLevel[level];
     const timestamp = dateFormat(new Date);
-    const msg = `${timestamp} [${levelStr}] ${message}\n`;
-
+    const timestampStr = `${timestamp} [${levelStr}] `;
+    const lines = message.split('\n');
+    let prettyMsg: string = ""; 
+    lines.forEach((m, index) => {
+      if (index > 0) {
+        prettyMsg += "\n" + " ".repeat(timestampStr.length) + m;
+      } 
+      else {
+        prettyMsg = m;
+      }
+    })
+    const msg = `${timestampStr}${prettyMsg}\n`;
     fs.appendFileSync(this.config.filePath, msg);
   }
 
@@ -46,8 +56,8 @@ export class Logger {
     const lineN = lines ? lines : 1 ;
     fs.appendFileSync(this.config.filePath, "\n".repeat(lineN));
   }
-
   start(): void {
+    this.emptyLine(2);
     this.write("=".repeat(15) + " Server started " + "=".repeat(15), LogLevel.START);
   }
   debug(message: string): void {

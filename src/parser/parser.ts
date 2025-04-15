@@ -5,7 +5,6 @@ import Parser from "tree-sitter";
 import { VisitorContext } from "./visitors/types";
 import { parser } from "./parser-config";
 import { visitorRegistry } from "./visitors";
-import { funcNames } from "./semanticTokens";
 import { funcDefRegistry } from "./visitors/function-declaration-visitor";
 import logger from "../utils/logger";
 
@@ -29,12 +28,11 @@ export function parseDocument(document: TextDocument) {
   }
 
   funcDefRegistry.clear();
-
   traverseTree(tree.rootNode, context);
 
-  const funcNames = funcDefRegistry.getNames();
-  logger.debug(`Collected function declaration names: ${funcNames.toString()}`);
-  logger.emptyLine();
+  //const funcs = JSON.stringify(funcDefRegistry.getAll(), null, 2);
+  //logger.debug(`Collected function declarations:\n${funcs}`);
+  //logger.emptyLine();
 
   return {
     semanticTokens: tokensBuilder.build()

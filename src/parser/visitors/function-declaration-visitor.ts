@@ -2,28 +2,78 @@ import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
 import { NodeVisitor, VisitorContext } from "./types";
-import { processTokens, addToken, funcNames } from "../semanticTokens";
+import { addToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
 /////////////////////////////////////////////////////////////////////////////////
 
-export class FunctionDeclVisitor implements NodeVisitor {
-
+export class FuncDefVisitor implements NodeVisitor {
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
+
+    // Process semantic tokens
     if (context.semanticTokensContext) {
-      //logger.debug(`Processing ${node.type} node for tokens..`);
-      const funcName = node.childForFieldName('name');
-      if (funcName) {
-        funcDefRegistry.add(funcName.text);
+
+      // Collect name
+      const funcNameNode = node.childForFieldName('name');
+      if (funcNameNode) {
+        const builder = context.semanticTokensContext;
+
+        // Tokenize name
+        addToken(funcNameNode, builder, TokenTypes.Function, TokenModifiers.Definition);
+
+        // Collect parameters definitions and tokenize
+        const paramNames: string[] = [];
+        const paramNameNodes = node.childrenForFieldName('parameter')
+        paramNameNodes.forEach(p => {
+          paramNames.push(p.text)
+          addToken(p, builder, TokenTypes.Parameter, TokenModifiers.Definition);
+        })
+
+        // Store info
+        const functionInfo: FunctionInfo = {
+          name: funcNameNode.text,
+          parameters: paramNames
+        }
+
+        // Process functions's body
+        const funcBodyNode = node.childForFieldName('body');
+
+        if (funcBodyNode) {
+          const localVariables = new Set<string>();
+
+          // TODO: tokenize function body function :
+          //    - Iterate through body nodes
+          //    - if inside expression_statement, iterate through the node
+          //        - FIRST handle right side of node with current local vars = tokenize
+          //        - THEN handle left side = update local vars + tokenize
+          //    - else handle return_statement
+          //
+          //    everytime we tokenize we take into account the collected parameters and local variables
+
+        }
+
+        // TODO: Diagnostics
+        if (!funcDefRegistry.add(functionInfo)) {
+          logger.warn(`Not adding function '${funcNameNode.text}', it is already stored !`)
+        }
+        else {
+        }
       }
     }
   }
 }
 
+
+interface FunctionInfo {
+  name: string,
+  parameters: string[]
+}
+
 export class FuncDefRegistry {
   private static instance: FuncDefRegistry;
 
-  private funcNames: string[] = [];
+  // Maps function names to their detailed infos
+  private functions: Map<string, FunctionInfo> = new Map();
 
   // Make sure we have only one instance
   private constructor() { };
@@ -39,31 +89,47 @@ export class FuncDefRegistry {
    * @description Clear stored names
    */
   public clear(): void {
-    this.funcNames = [];
+    this.functions.clear();
   }
 
   /**
-   * @description Add a name to the registry
+   * @description Add a function to the registry
    *
-   * @param {string} name - The name to store 
+   * @param {FunctionInfo} info The function informations to store 
    */
-  public add(name: string) {
-    if (!this.funcNames.includes(name)) {
-      logger.info(`Adding name '${name}' to registry`)
-      this.funcNames.push(name);
-    } else {
-      logger.info(`Name '${name}' already stored !`)
+  public add(info: FunctionInfo): boolean {
+    if (!this.functions.has(info.name)) {
+      this.functions.set(info.name, info);
+      return true;
+    }
+    else {
+      return false;
     }
   }
 
-  /**
-   * @description Get stored names
-   *
-   * @returns {string[]} The array of names
-   */
-  public getNames(): string[] {
-    return [... this.funcNames];
+  public has(name: string): boolean {
+    if (this.functions.has(name)) {
+      return true;
+    }
+    else {
+      return false;
+    }
   }
+
+  public get(name: string): FunctionInfo | undefined {
+    if (this.functions.has(name)) {
+      return this.functions.get(name);
+    }
+  }
+
+  public getNames(): string[] {
+    return Array.from(this.functions.keys())
+  }
+
+  public getAll(): FunctionInfo[] {
+    return Array.from(this.functions.values())
+  }
+
 }
 
 /**

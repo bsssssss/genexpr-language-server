@@ -1,6 +1,5 @@
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import Parser from 'tree-sitter';
-import logger from '../utils/logger';
 
 export enum TokenTypes {
   Function,
@@ -10,6 +9,7 @@ export enum TokenTypes {
   Object,
   Attribute
 }
+
 export const tokenTypesLegend = [
   'function',
   'parameter',
@@ -25,20 +25,13 @@ export enum TokenModifiers {
   Special,
   Builtin
 }
+
 export const tokenModifiersLegend = [
   'declaration',
   'definition',
   'special',
   'builtin'
 ]
-
-export let funcNames: string[] = [];
-
-export function processTokens(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
-  logger.debug(`Processing tokens in ${node.type} node...\n`);
-  
-  return builder.build();
-}
 
 export function addToken(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, type: TokenTypes, modifier: TokenModifiers) {
   builder.push(
