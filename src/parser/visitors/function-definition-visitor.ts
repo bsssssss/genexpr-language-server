@@ -173,7 +173,9 @@ export class FunctionDefinitionRegistry {
   private functions: Map<string, FunctionInfo> = new Map();
 
   // Make sure we have only one instance
+
   private constructor() { };
+
   public static getInstance(): FunctionDefinitionRegistry {
     if (!FunctionDefinitionRegistry.instance) {
       FunctionDefinitionRegistry.instance = new FunctionDefinitionRegistry();
