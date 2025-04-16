@@ -33,13 +33,18 @@ export const tokenModifiersLegend = [
   'builtin'
 ]
 
-export function addToken(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, type: TokenTypes, modifier: TokenModifiers) {
+export function addToken(
+  node: Parser.SyntaxNode,
+  builder: SemanticTokensBuilder,
+  type: TokenTypes,
+  modifier?: TokenModifiers
+) {
   builder.push(
     node.startPosition.row,
     node.startPosition.column,
     node.text.length,
     type,
-    1 << modifier
+    modifier ? 1 << modifier : 0
   )
 }
 

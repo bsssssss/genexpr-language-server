@@ -3,7 +3,7 @@ import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
 import { NodeVisitor, VisitorContext } from "./types";
-import { addToken, TokenModifiers, TokenTypes } from "../semanticTokens";
+import { addToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
 /*
@@ -26,7 +26,6 @@ export class FuncDefVisitor implements NodeVisitor {
    * 
    **/
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
-
     // Process semantic tokens
     if (context.semanticTokensBuilder) {
       const builder = context.semanticTokensBuilder;
@@ -63,7 +62,7 @@ export class FuncDefVisitor implements NodeVisitor {
       parameterNodes: paramNodes
     }
 
-    if (!funcDefRegistry.add(functionInfo)) {
+    if (!functionDefinitionRegistry.add(functionInfo)) {
       logger.warn(`Not adding function '${nameNode.text}', it is already stored !`);
       return;
     }
@@ -96,6 +95,7 @@ export class FuncDefVisitor implements NodeVisitor {
       if (s.type === 'return_statement') {
         this.processReturnStatement(s, builder, funcInfo, localVariables)
       }
+      // TODO: handle selection_statement
     })
   }
 
@@ -107,40 +107,33 @@ export class FuncDefVisitor implements NodeVisitor {
   ) {
 
     const assignment = statement.firstChild;
-
     if (!assignment) {
       return
     }
 
-    // TODO: Handle multiple assignment ?
-    if (assignment.type !== 'single_assignment') {
+    const simpleAssign = assignment.type === 'single_assignment' || assignment.type === 'multiple_assignment';
+    if (!simpleAssign) {
       return
     }
 
     const paramNames = funcInfo.parameters;
 
-    const right = assignment.childForFieldName('right')
-    const left = assignment.childForFieldName('left')
+    const right = assignment.childrenForFieldName('right')
+    const left = assignment.childrenForFieldName('left')
 
     // Handle right side
-    if (right) {
-      if (right.children) {
-        // The right side is an expression
-        right.children.forEach(identifier => {
-          this.tokenizeInBody(identifier, builder, paramNames, localVariables);
-        })
-      }
-      if (right.type === 'identifier') {
-        // The right side is only an identifier
-        this.tokenizeInBody(right, builder, paramNames, localVariables);
-      }
-    }
+    right.forEach(right => {
+      const rightIds = collectIdentifiers(right);
+      rightIds.forEach(identifier => {
+        this.tokenizeInBody(identifier, builder, paramNames, localVariables);
+      })
+    })
 
     // Handle left side (local variables)
-    if (left) {
+    left.forEach(left => {
       localVariables.add(left.text);
-      addToken(left, builder, TokenTypes.Variable, 0)
-    }
+      addToken(left, builder, TokenTypes.Variable)
+    })
   }
 
   private processReturnStatement(
@@ -151,18 +144,10 @@ export class FuncDefVisitor implements NodeVisitor {
   ) {
 
     const paramNames = funcInfo.parameters;
+    const identifiers = collectIdentifiers(statement);
 
-    statement.children.forEach(returnStatement => {
-      if (returnStatement.children) {
-
-        returnStatement.children.forEach(i => {
-          this.tokenizeInBody(i, builder, paramNames, localVariables);
-        })
-      }
-
-      if (returnStatement.type === 'identifier') {
-        this.tokenizeInBody(returnStatement, builder, paramNames, localVariables);
-      }
+    identifiers.forEach(i => {
+      this.tokenizeInBody(i, builder, paramNames, localVariables);
     })
   }
 
@@ -173,27 +158,27 @@ export class FuncDefVisitor implements NodeVisitor {
     localVariables: Set<string>
   ) {
     if (params.includes(node.text) && !localVariables.has(node.text)) {
-      addToken(node, builder, TokenTypes.Parameter, 0)
+      addToken(node, builder, TokenTypes.Parameter)
     }
     else if (localVariables.has(node.text)) {
-      addToken(node, builder, TokenTypes.Variable, 0);
+      addToken(node, builder, TokenTypes.Variable);
     }
   }
 }
 
-export class FuncDefRegistry {
-  private static instance: FuncDefRegistry;
+export class FunctionDefinitionRegistry {
+  private static instance: FunctionDefinitionRegistry;
 
   // Maps function names to their detailed infos
   private functions: Map<string, FunctionInfo> = new Map();
 
   // Make sure we have only one instance
   private constructor() { };
-  public static getInstance(): FuncDefRegistry {
-    if (!FuncDefRegistry.instance) {
-      FuncDefRegistry.instance = new FuncDefRegistry();
+  public static getInstance(): FunctionDefinitionRegistry {
+    if (!FunctionDefinitionRegistry.instance) {
+      FunctionDefinitionRegistry.instance = new FunctionDefinitionRegistry();
     }
-    return FuncDefRegistry.instance
+    return FunctionDefinitionRegistry.instance
   }
 
   /**
@@ -257,4 +242,4 @@ export class FuncDefRegistry {
 /**
  * @description The instance of the function declarations registry
  */
-export const funcDefRegistry = FuncDefRegistry.getInstance();
+export const functionDefinitionRegistry = FunctionDefinitionRegistry.getInstance();
