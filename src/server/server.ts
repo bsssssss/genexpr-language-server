@@ -15,14 +15,13 @@ import { parseDocument } from "../parser/parser";
 
 /////////////////////////////////////////////////////////////////////////////////
 
-logger.emptyLine(4);
-logger.info(".".repeat(30) + "Starting server" + ".".repeat(30));
+logger.start();
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 documents.onDidOpen((event) => {
-  logger.info("A document was opened: " + event.document.uri);
+  logger.info("A document was opened:\n" + event.document.uri);
 
   // Greetings 
   //connection.sendNotification('window/showMessage', {

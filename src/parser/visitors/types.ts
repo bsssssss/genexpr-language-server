@@ -2,7 +2,7 @@ import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
 export interface VisitorContext {
-  semanticTokensContext?: SemanticTokensBuilder
+  semanticTokensBuilder?: SemanticTokensBuilder
 }
 
 export interface NodeVisitor {

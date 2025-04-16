@@ -5,7 +5,7 @@ import Parser from "tree-sitter";
 import { VisitorContext } from "./visitors/types";
 import { parser } from "./parser-config";
 import { visitorRegistry } from "./visitors";
-import { funcDefRegistry } from "./visitors/function-declaration-visitor";
+import { funcDefRegistry } from "./visitors/function-definition-visitor";
 import logger from "../utils/logger";
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -24,7 +24,7 @@ export function parseDocument(document: TextDocument) {
   const tokensBuilder = new SemanticTokensBuilder();
 
   const context: VisitorContext = {
-    semanticTokensContext: tokensBuilder
+    semanticTokensBuilder: tokensBuilder
   }
 
   funcDefRegistry.clear();
