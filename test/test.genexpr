@@ -1,7 +1,4 @@
-add(x,y){
+add(in1,y){
   z = 2;
   return x + y + z;
 }
-
-out1 = add(1,1);
-out2 = cycle(50);

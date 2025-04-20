@@ -7,7 +7,8 @@ export enum TokenTypes {
   Variable,
   Constant,
   Object,
-  Attribute
+  Attribute,
+  Comment,
 }
 
 export const tokenTypesLegend = [
@@ -16,7 +17,8 @@ export const tokenTypesLegend = [
   'variable',
   'constant',
   'object',
-  'attribute'
+  'attribute',
+  'comment'
 ]
 
 export enum TokenModifiers {

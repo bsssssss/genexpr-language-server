@@ -15,10 +15,10 @@ To install and run this you need:
 
 - A recent version of Node.js.
 - npm (node package manager)
-- A compatible editor (although I only tested this with Neovim)
+- A compatible editor (only tested with Neovim for now)
 
 You also need tree-sitter-genexpr to get syntax highlightings.
-the server also relies on this to help with syntax structure.
+The server also relies on this to help with syntax structure.
 
 You can find it here: 
 https://github.com/sadguitarius/tree-sitter-genexpr
@@ -89,5 +89,3 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 ```
-
-You should now see a greeting message when opening a .genexpr/.gendsp file !

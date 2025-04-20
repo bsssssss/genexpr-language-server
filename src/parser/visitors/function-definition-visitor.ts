@@ -19,6 +19,11 @@ interface FunctionInfo {
   parameterNodes: Parser.SyntaxNode[]
 }
 
+enum Scope {
+  FunctionBody,
+  SelectionStatementConsequence
+}
+
 export class FuncDefVisitor implements NodeVisitor {
 
   /**
@@ -32,13 +37,14 @@ export class FuncDefVisitor implements NodeVisitor {
 
       const functionInfo = this.processSignature(node, builder);
       if (functionInfo) {
-        this.processBody(node, builder, functionInfo);
+        const localVariables = new Set<string>();
+        this.processFunctionBody(node, builder, functionInfo, localVariables);
       }
     }
   }
 
   /**
-   * @description Handle the signature/header part of the function definition
+   * @description Handle the signature (ie. header) part of the function definition
    *
    **/
   private processSignature(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
@@ -51,8 +57,8 @@ export class FuncDefVisitor implements NodeVisitor {
     const paramNames: string[] = [];
     const paramNodes = node.childrenForFieldName('parameter')
 
-    paramNodes.forEach(p => {
-      paramNames.push(p.text)
+    paramNodes.forEach(n => {
+      paramNames.push(n.text)
     })
 
     const functionInfo: FunctionInfo = {
@@ -67,91 +73,118 @@ export class FuncDefVisitor implements NodeVisitor {
       return;
     }
 
-    // If the function was stored
-    // Tokenize name
+    // If the function was stored, tokenize name  and params
     addToken(nameNode, builder, TokenTypes.Function, TokenModifiers.Definition);
-    // Tokenize parameters
-    paramNodes.forEach(p => {
-      addToken(p, builder, TokenTypes.Parameter, TokenModifiers.Definition);
+    paramNodes.forEach(n => {
+      addToken(n, builder, TokenTypes.Parameter, TokenModifiers.Definition);
     })
 
     return functionInfo;
   }
 
-  private processBody(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, funcInfo: FunctionInfo) {
+  private processFunctionBody(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, funcInfo: FunctionInfo, localVariables: Set<string>) {
 
-    const funcBodyNode = node.childForFieldName('body');
-    if (!funcBodyNode) { return };
+    const bodyNode = node.childForFieldName('body');
+    if (!bodyNode) { return };
 
-    const statements = funcBodyNode.childForFieldName('statements');
+    const statements = bodyNode.childForFieldName('statements');
     if (!statements) { return };
 
-    const localVariables = new Set<string>();
-
-    statements.children.forEach(s => {
-      if (s.type === 'expression_statement') {
-        this.processExpressionStatement(s, builder, funcInfo, localVariables);
+    statements.children.forEach(n => {
+      if (n.type === 'expression_statement') {
+        this.processExpressionStatement(n, builder, funcInfo, localVariables, Scope.FunctionBody);
       }
-      if (s.type === 'return_statement') {
-        this.processReturnStatement(s, builder, funcInfo, localVariables)
+      if (n.type === 'selection_statement') {
+        this.processSelectionStatement(n, builder, funcInfo, localVariables);
       }
-      // TODO: handle selection_statement
+      if (n.type === 'return_statement') {
+        this.processReturnStatement(n, builder, funcInfo, localVariables)
+      }
     })
   }
 
   private processExpressionStatement(
-    statement: Parser.SyntaxNode,
+    node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     funcInfo: FunctionInfo,
-    localVariables: Set<string>
+    localVariables: Set<string>,
+    scope: Scope
   ) {
 
-    const assignment = statement.firstChild;
-    if (!assignment) {
-      return
-    }
+    const statement = node.firstChild;
+    if (!statement) { return };
 
-    const simpleAssign = assignment.type === 'single_assignment' || assignment.type === 'multiple_assignment';
-    if (!simpleAssign) {
-      return
-    }
+    const isAssignment = statement.type === 'single_assignment' || statement.type === 'multiple_assignment';
+    if (!isAssignment) { return };
 
-    const paramNames = funcInfo.parameters;
-
-    const right = assignment.childrenForFieldName('right')
-    const left = assignment.childrenForFieldName('left')
+    const right = statement.childrenForFieldName('right')
+    const left = statement.childrenForFieldName('left')
 
     // Handle right side
-    right.forEach(right => {
-      const rightIds = collectIdentifiers(right);
-      rightIds.forEach(identifier => {
-        this.tokenizeInBody(identifier, builder, paramNames, localVariables);
+    right.forEach(n => {
+      const rightIds = collectIdentifiers(n);
+      rightIds.forEach(i => {
+        this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
       })
     })
 
-    // Handle left side (local variables)
-    left.forEach(left => {
-      localVariables.add(left.text);
-      addToken(left, builder, TokenTypes.Variable)
-    })
+    if (scope === Scope.FunctionBody) {
+      // Handle left side (local variables)
+      left.forEach(n => {
+        localVariables.add(n.text);
+        addToken(n, builder, TokenTypes.Variable)
+      })
+    }
+    // else if (scope === Scope.SelectionStatementConsequence) {
+    //   left.forEach(n => {
+    //
+    //   })
+    // }
   }
 
-  private processReturnStatement(
-    statement: Parser.SyntaxNode,
+  private processSelectionStatement(
+    node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     funcInfo: FunctionInfo,
     localVariables: Set<string>
   ) {
 
-    const paramNames = funcInfo.parameters;
-    const identifiers = collectIdentifiers(statement);
+    const conditionNode = node.childForFieldName('condition')
+    if (!conditionNode) { return };
+
+    conditionNode.children.forEach(n => {
+      const ids = collectIdentifiers(n);
+      ids.forEach(i => {
+        this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
+      })
+    })
+
+    const consequenceNode = node.childrenForFieldName('consequence')
+    if (!consequenceNode) { return };
+
+    logger.info(`Found consequence node: ${consequenceNode.toString()}`);
+
+    consequenceNode.forEach(n => {
+      logger.info(`Processing consequence node of type ${n.type}`);
+    })
+
+  }
+
+  private processReturnStatement(
+    node: Parser.SyntaxNode,
+    builder: SemanticTokensBuilder,
+    funcInfo: FunctionInfo,
+    localVariables: Set<string>
+  ) {
+
+    const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
-      this.tokenizeInBody(i, builder, paramNames, localVariables);
+      this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
     })
   }
 
-  private tokenizeInBody(
+  private tokenizeBody(
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     params: string[],
@@ -163,6 +196,9 @@ export class FuncDefVisitor implements NodeVisitor {
     else if (localVariables.has(node.text)) {
       addToken(node, builder, TokenTypes.Variable);
     }
+    else {
+      addToken(node, builder, TokenTypes.Comment);
+    }
   }
 }
 
@@ -173,9 +209,7 @@ export class FunctionDefinitionRegistry {
   private functions: Map<string, FunctionInfo> = new Map();
 
   // Make sure we have only one instance
-
   private constructor() { };
-
   public static getInstance(): FunctionDefinitionRegistry {
     if (!FunctionDefinitionRegistry.instance) {
       FunctionDefinitionRegistry.instance = new FunctionDefinitionRegistry();
@@ -184,7 +218,7 @@ export class FunctionDefinitionRegistry {
   }
 
   /**
-   * @description Clear stored functions infos
+   * @description Clear all stored functions infos
    */
   public clear(): void {
     this.functions.clear();
