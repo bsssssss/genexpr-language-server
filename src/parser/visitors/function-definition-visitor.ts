@@ -135,11 +135,17 @@ export class FuncDefVisitor implements NodeVisitor {
         addToken(n, builder, TokenTypes.Variable)
       })
     }
-    // else if (scope === Scope.SelectionStatementConsequence) {
-    //   left.forEach(n => {
-    //
-    //   })
-    // }
+    else if (scope === Scope.SelectionStatementConsequence) {
+      left.forEach(n => {
+        if (!funcInfo.parameters.includes(n.text) && !localVariables.has(n.text)) {
+          addToken(n, builder, TokenTypes.Comment);
+        }
+        else if (funcInfo.parameters.includes(n.text)) {
+          localVariables.add(n.text);
+          this.tokenizeBody(n, builder, funcInfo.parameters, localVariables);
+        }
+      })
+    }
   }
 
   private processSelectionStatement(
@@ -159,15 +165,45 @@ export class FuncDefVisitor implements NodeVisitor {
       })
     })
 
-    const consequenceNode = node.childrenForFieldName('consequence')
+    const consequenceNode = node.childrenForFieldName('consequence');
     if (!consequenceNode) { return };
 
-    logger.info(`Found consequence node: ${consequenceNode.toString()}`);
-
     consequenceNode.forEach(n => {
-      logger.info(`Processing consequence node of type ${n.type}`);
+      if (n.type === 'expr_statement_list') {
+        n.children.forEach(s => {
+          if (s.type === 'expression_statement') {
+            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
+          }
+          if (s.type === 'selection_statement') {
+            this.processSelectionStatement(s, builder, funcInfo, localVariables);
+          }
+          if (s.type === 'return_statement') {
+            this.processReturnStatement(s, builder, funcInfo, localVariables);
+          }
+        })
+      }
     })
 
+    // !! Should create scopes for local variables in selection statements !!
+
+    const alternativeNode = node.childrenForFieldName('alternative');
+    if (!alternativeNode) { return };
+
+    alternativeNode.forEach(n => {
+      if (n.type === 'expr_statement_list') {
+        n.children.forEach(s => {
+          if (s.type === 'expression_statement') {
+            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
+          }
+          if (s.type === 'selection_statement') {
+            this.processSelectionStatement(s, builder, funcInfo, localVariables);
+          }
+          if (s.type === 'return_statement') {
+            this.processReturnStatement(s, builder, funcInfo, localVariables);
+          }
+        })
+      }
+    })
   }
 
   private processReturnStatement(
