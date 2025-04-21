@@ -3,7 +3,7 @@ import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
 import { NodeVisitor, Scope, VisitorContext } from "./types";
-import { addToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
+import { pushToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
 /*
@@ -70,10 +70,10 @@ export class FuncDefVisitor implements NodeVisitor {
       return;
     }
 
-    // If the function was stored, tokenize name  and params
-    addToken(name, builder, TokenTypes.Function, TokenModifiers.Definition);
+    // If the function was stored, tokenize name and params
+    pushToken(name, builder, TokenTypes.Function, TokenModifiers.Definition);
     parameters.forEach(n => {
-      addToken(n, builder, TokenTypes.Parameter, TokenModifiers.Definition);
+      pushToken(n, builder, TokenTypes.Parameter, TokenModifiers.Definition);
     })
 
     return functionInfo;
@@ -94,7 +94,7 @@ export class FuncDefVisitor implements NodeVisitor {
 
     statements.children.forEach(n => {
       if (n.type === 'expression_statement') {
-        this.processExpressionStatement(n, builder, funcInfo, scope);
+        this.processMainScopeExpressions(n, builder, funcInfo, scope);
       }
       if (n.type === 'selection_statement') {
         this.processSelectionStatement(n, builder, funcInfo, scope);
@@ -102,6 +102,38 @@ export class FuncDefVisitor implements NodeVisitor {
       if (n.type === 'return_statement') {
         this.processReturnStatement(n, builder, funcInfo, scope)
       }
+    })
+  }
+
+  private processMainScopeExpressions(
+    node: Parser.SyntaxNode,
+    builder: SemanticTokensBuilder,
+    funcInfo: FunctionInfo,
+    scope: Scope,
+  ) {
+
+    const statement = node.firstChild;
+    if (!statement) { return };
+
+    const isAssignment = statement.type === 'single_assignment' || statement.type === 'multiple_assignment';
+    if (!isAssignment) { return };
+
+    const right = statement.childrenForFieldName('right')
+    const left = statement.childrenForFieldName('left')
+
+    // Handle right side
+    //
+    right.forEach(n => {
+      const rightIds = collectIdentifiers(n);
+      rightIds.forEach(i => {
+        this.tokenizeIdentifier(i, builder, funcInfo, scope);
+      })
+    })
+
+    // Handle left side (local variables)
+    left.forEach(i => {
+      scope.add(i.text);
+      this.tokenizeIdentifier(i, builder, funcInfo, scope);
     })
   }
 
@@ -122,6 +154,7 @@ export class FuncDefVisitor implements NodeVisitor {
     const left = statement.childrenForFieldName('left')
 
     // Handle right side
+    //
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
@@ -129,10 +162,17 @@ export class FuncDefVisitor implements NodeVisitor {
       })
     })
 
+    const parameters = funcInfo.parameters.map(p => p.text);
+
     // Handle left side (local variables)
-    left.forEach(n => {
-      scope.add(n.text);
-      addToken(n, builder, TokenTypes.Variable)
+    left.forEach(i => {
+      if (parameters.includes(i.text) || scope.has(i.text)) {
+        scope.add(i.text);
+      }
+      else {
+        // Error - Variable <i> not defined
+      }
+      this.tokenizeIdentifier(i, builder, funcInfo, scope);
     })
   }
 
@@ -143,16 +183,23 @@ export class FuncDefVisitor implements NodeVisitor {
     parentScope: Scope
   ) {
 
+    // If condition statement
     const conditionNode = node.childForFieldName('condition')
     if (!conditionNode) { return };
 
-    conditionNode.children.forEach(n => {
-      const ids = collectIdentifiers(n);
-      ids.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo, parentScope);
+    if (conditionNode.type === 'identifier') {
+      this.tokenizeIdentifier(conditionNode, builder, funcInfo, parentScope);
+    }
+    else {
+      conditionNode.children.forEach(n => {
+        const ids = collectIdentifiers(n);
+        ids.forEach(i => {
+          this.tokenizeIdentifier(i, builder, funcInfo, parentScope);
+        })
       })
-    })
+    }
 
+    // If body 
     const consequenceNode = node.childrenForFieldName('consequence');
     if (!consequenceNode) { return };
 
@@ -174,8 +221,7 @@ export class FuncDefVisitor implements NodeVisitor {
       }
     })
 
-    // !! Should create scopes for local variables in selection statements !!
-
+    // Else body
     const alternativeNode = node.childrenForFieldName('alternative');
     if (!alternativeNode) { return };
 
@@ -204,7 +250,6 @@ export class FuncDefVisitor implements NodeVisitor {
     funcInfo: FunctionInfo,
     scope: Scope
   ) {
-
     const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
@@ -222,17 +267,18 @@ export class FuncDefVisitor implements NodeVisitor {
 
     if (parameters.includes(node.text)) {
       if (scope.has(node.text)) {
-        addToken(node, builder, TokenTypes.Variable)
+        pushToken(node, builder, TokenTypes.Variable)
       }
       else {
-        addToken(node, builder, TokenTypes.Parameter)
+        pushToken(node, builder, TokenTypes.Parameter)
       }
     }
     else if (scope.has(node.text)) {
-      addToken(node, builder, TokenTypes.Variable)
+      pushToken(node, builder, TokenTypes.Variable)
     }
     else {
-      addToken(node, builder, TokenTypes.Comment)
+      // Error - Variable <node> not defined
+      pushToken(node, builder, TokenTypes.Comment)
     }
 
   }

@@ -1,5 +1,6 @@
 import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
+import logger from "../../utils/logger";
 
 export interface VisitorContext {
   semanticTokensBuilder?: SemanticTokensBuilder

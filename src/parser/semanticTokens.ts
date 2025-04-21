@@ -35,7 +35,7 @@ export const tokenModifiersLegend = [
   'builtin'
 ]
 
-export function addToken(
+export function pushToken(
   node: Parser.SyntaxNode,
   builder: SemanticTokensBuilder,
   type: TokenTypes,
