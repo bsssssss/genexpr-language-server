@@ -239,6 +239,9 @@ export class FuncDefVisitor implements NodeVisitor {
           }
         })
       }
+      if (n.type === 'selection_statement') {
+        this.processSelectionStatement(n, context, funcInfo, alternativeScope);
+      }
     })
   }
 
