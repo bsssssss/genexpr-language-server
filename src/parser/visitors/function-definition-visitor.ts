@@ -30,16 +30,14 @@ export class FuncDefVisitor implements NodeVisitor {
    * 
    **/
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
-    // Process semantic tokens
-    if (context.semanticTokensBuilder) {
-      const builder = context.semanticTokensBuilder;
 
-      const functionInfo = this.processSignature(node, builder);
-      if (functionInfo) {
-        // const localVariables = new Set<string>();
-        const functionScope = new Scope(null);
-        this.processFunctionBody(node, builder, functionInfo, functionScope);
-      }
+    const builder = context.semanticTokensBuilder;
+    const functionInfo = this.processSignature(node, builder);
+
+    if (functionInfo) {
+      const functionScope = new Scope(null);
+
+      this.processFunctionBody(node, context, functionInfo, functionScope);
     }
   }
 
@@ -81,7 +79,7 @@ export class FuncDefVisitor implements NodeVisitor {
 
   private processFunctionBody(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     scope: Scope
   ) {
@@ -94,20 +92,20 @@ export class FuncDefVisitor implements NodeVisitor {
 
     statements.children.forEach(n => {
       if (n.type === 'expression_statement') {
-        this.processMainScopeExpressions(n, builder, funcInfo, scope);
+        this.processMainScopeExpressions(n, context, funcInfo, scope);
       }
       if (n.type === 'selection_statement') {
-        this.processSelectionStatement(n, builder, funcInfo, scope);
+        this.processSelectionStatement(n, context, funcInfo, scope);
       }
       if (n.type === 'return_statement') {
-        this.processReturnStatement(n, builder, funcInfo, scope)
+        this.processReturnStatement(n, context, funcInfo, scope)
       }
     })
   }
 
   private processMainScopeExpressions(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     scope: Scope,
   ) {
@@ -126,20 +124,20 @@ export class FuncDefVisitor implements NodeVisitor {
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo, scope);
+        this.tokenizeIdentifier(i, context, funcInfo, scope);
       })
     })
 
     // Handle left side (local variables)
     left.forEach(i => {
       scope.add(i.text);
-      this.tokenizeIdentifier(i, builder, funcInfo, scope);
+      this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
   }
 
   private processExpressionStatement(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     scope: Scope,
   ) {
@@ -158,7 +156,7 @@ export class FuncDefVisitor implements NodeVisitor {
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo, scope);
+        this.tokenizeIdentifier(i, context, funcInfo, scope);
       })
     })
 
@@ -172,13 +170,13 @@ export class FuncDefVisitor implements NodeVisitor {
       else {
         // Error - Variable <i> not defined
       }
-      this.tokenizeIdentifier(i, builder, funcInfo, scope);
+      this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
   }
 
   private processSelectionStatement(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     parentScope: Scope
   ) {
@@ -188,13 +186,13 @@ export class FuncDefVisitor implements NodeVisitor {
     if (!conditionNode) { return };
 
     if (conditionNode.type === 'identifier') {
-      this.tokenizeIdentifier(conditionNode, builder, funcInfo, parentScope);
+      this.tokenizeIdentifier(conditionNode, context, funcInfo, parentScope);
     }
     else {
       conditionNode.children.forEach(n => {
         const ids = collectIdentifiers(n);
         ids.forEach(i => {
-          this.tokenizeIdentifier(i, builder, funcInfo, parentScope);
+          this.tokenizeIdentifier(i, context, funcInfo, parentScope);
         })
       })
     }
@@ -209,13 +207,13 @@ export class FuncDefVisitor implements NodeVisitor {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, consequenceScope);
+            this.processExpressionStatement(s, context, funcInfo, consequenceScope);
           }
           if (s.type === 'selection_statement') {
-            this.processSelectionStatement(s, builder, funcInfo, consequenceScope);
+            this.processSelectionStatement(s, context, funcInfo, consequenceScope);
           }
           if (s.type === 'return_statement') {
-            this.processReturnStatement(s, builder, funcInfo, consequenceScope);
+            this.processReturnStatement(s, context, funcInfo, consequenceScope);
           }
         })
       }
@@ -231,13 +229,13 @@ export class FuncDefVisitor implements NodeVisitor {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, alternativeScope);
+            this.processExpressionStatement(s, context, funcInfo, alternativeScope);
           }
           if (s.type === 'selection_statement') {
-            this.processSelectionStatement(s, builder, funcInfo, alternativeScope);
+            this.processSelectionStatement(s, context, funcInfo, alternativeScope);
           }
           if (s.type === 'return_statement') {
-            this.processReturnStatement(s, builder, funcInfo, alternativeScope);
+            this.processReturnStatement(s, context, funcInfo, alternativeScope);
           }
         })
       }
@@ -246,23 +244,24 @@ export class FuncDefVisitor implements NodeVisitor {
 
   private processReturnStatement(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     scope: Scope
   ) {
     const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
-      this.tokenizeIdentifier(i, builder, funcInfo, scope);
+      this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
   }
 
   private tokenizeIdentifier(
     node: Parser.SyntaxNode,
-    builder: SemanticTokensBuilder,
+    context: VisitorContext,
     funcInfo: FunctionInfo,
     scope: Scope
   ) {
+    const builder = context.semanticTokensBuilder;
     const parameters = funcInfo.parameters.map(param => param.text);
 
     if (parameters.includes(node.text)) {
