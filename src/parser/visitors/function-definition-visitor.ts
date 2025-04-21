@@ -124,7 +124,7 @@ export class FuncDefVisitor implements NodeVisitor {
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
+        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
       })
     })
 
@@ -142,7 +142,7 @@ export class FuncDefVisitor implements NodeVisitor {
         }
         else if (funcInfo.parameters.includes(n.text)) {
           localVariables.add(n.text);
-          this.tokenizeBody(n, builder, funcInfo.parameters, localVariables);
+          this.tokenizeIdentifier(n, builder, funcInfo.parameters, localVariables);
         }
       })
     }
@@ -161,7 +161,7 @@ export class FuncDefVisitor implements NodeVisitor {
     conditionNode.children.forEach(n => {
       const ids = collectIdentifiers(n);
       ids.forEach(i => {
-        this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
+        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
       })
     })
 
@@ -216,11 +216,11 @@ export class FuncDefVisitor implements NodeVisitor {
     const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
-      this.tokenizeBody(i, builder, funcInfo.parameters, localVariables);
+      this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
     })
   }
 
-  private tokenizeBody(
+  private tokenizeIdentifier(
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     params: string[],
