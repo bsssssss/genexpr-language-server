@@ -135,6 +135,7 @@ export class FuncDefVisitor implements NodeVisitor {
         addToken(n, builder, TokenTypes.Variable)
       })
     }
+
     else if (scope === Scope.SelectionStatementConsequence) {
       left.forEach(n => {
         if (!funcInfo.parameters.includes(n.text) && !localVariables.has(n.text)) {
