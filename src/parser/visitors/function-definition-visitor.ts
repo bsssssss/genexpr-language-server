@@ -13,15 +13,14 @@ import logger from "../../utils/logger"
  */
 
 interface FunctionInfo {
-  name: string,
-  nameNode: Parser.SyntaxNode,
-  parameters: string[],
-  parameterNodes: Parser.SyntaxNode[]
-}
-
-enum Scope {
-  FunctionBody,
-  SelectionStatementConsequence
+  name: {
+    text: string,
+    node: Parser.SyntaxNode,
+  }
+  parameters: Array<{
+    text: string,
+    node: Parser.SyntaxNode
+  }>
 }
 
 export class FuncDefVisitor implements NodeVisitor {
@@ -49,40 +48,42 @@ export class FuncDefVisitor implements NodeVisitor {
    **/
   private processSignature(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
 
-    const nameNode = node.childForFieldName('name');
-    if (!nameNode) { return }
+    const name = node.childForFieldName('name');
+    if (!name) { return }
 
-    const funcName = nameNode.text;
-
-    const paramNames: string[] = [];
-    const paramNodes = node.childrenForFieldName('parameter')
-
-    paramNodes.forEach(n => {
-      paramNames.push(n.text)
-    })
+    const parameters = node.childrenForFieldName('parameter')
 
     const functionInfo: FunctionInfo = {
-      name: funcName,
-      nameNode: nameNode,
-      parameters: paramNames,
-      parameterNodes: paramNodes
+      name: {
+        text: name.text,
+        node: name
+      },
+      parameters: parameters.map(node => ({
+        text: node.text,
+        node: node
+      }))
     }
 
     if (!functionDefinitionRegistry.add(functionInfo)) {
-      logger.warn(`Not adding function '${nameNode.text}', it is already stored !`);
+      logger.warn(`Not adding function '${name.text}', it is already stored !`);
       return;
     }
 
     // If the function was stored, tokenize name  and params
-    addToken(nameNode, builder, TokenTypes.Function, TokenModifiers.Definition);
-    paramNodes.forEach(n => {
+    addToken(name, builder, TokenTypes.Function, TokenModifiers.Definition);
+    parameters.forEach(n => {
       addToken(n, builder, TokenTypes.Parameter, TokenModifiers.Definition);
     })
 
     return functionInfo;
   }
 
-  private processFunctionBody(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, funcInfo: FunctionInfo, localVariables: Set<string>) {
+  private processFunctionBody(
+    node: Parser.SyntaxNode,
+    builder: SemanticTokensBuilder,
+    funcInfo: FunctionInfo,
+    localVariables: Set<string>
+  ) {
 
     const bodyNode = node.childForFieldName('body');
     if (!bodyNode) { return };
@@ -92,7 +93,7 @@ export class FuncDefVisitor implements NodeVisitor {
 
     statements.children.forEach(n => {
       if (n.type === 'expression_statement') {
-        this.processExpressionStatement(n, builder, funcInfo, localVariables, Scope.FunctionBody);
+        this.processExpressionStatement(n, builder, funcInfo, localVariables);
       }
       if (n.type === 'selection_statement') {
         this.processSelectionStatement(n, builder, funcInfo, localVariables);
@@ -108,7 +109,6 @@ export class FuncDefVisitor implements NodeVisitor {
     builder: SemanticTokensBuilder,
     funcInfo: FunctionInfo,
     localVariables: Set<string>,
-    scope: Scope
   ) {
 
     const statement = node.firstChild;
@@ -124,29 +124,15 @@ export class FuncDefVisitor implements NodeVisitor {
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
+        this.tokenizeIdentifier(i, builder, funcInfo, localVariables);
       })
     })
 
-    if (scope === Scope.FunctionBody) {
-      // Handle left side (local variables)
-      left.forEach(n => {
-        localVariables.add(n.text);
-        addToken(n, builder, TokenTypes.Variable)
-      })
-    }
-
-    else if (scope === Scope.SelectionStatementConsequence) {
-      left.forEach(n => {
-        if (!funcInfo.parameters.includes(n.text) && !localVariables.has(n.text)) {
-          addToken(n, builder, TokenTypes.Comment);
-        }
-        else if (funcInfo.parameters.includes(n.text)) {
-          localVariables.add(n.text);
-          this.tokenizeIdentifier(n, builder, funcInfo.parameters, localVariables);
-        }
-      })
-    }
+    // Handle left side (local variables)
+    left.forEach(n => {
+      localVariables.add(n.text);
+      addToken(n, builder, TokenTypes.Variable)
+    })
   }
 
   private processSelectionStatement(
@@ -162,7 +148,7 @@ export class FuncDefVisitor implements NodeVisitor {
     conditionNode.children.forEach(n => {
       const ids = collectIdentifiers(n);
       ids.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
+        this.tokenizeIdentifier(i, builder, funcInfo, localVariables);
       })
     })
 
@@ -173,7 +159,7 @@ export class FuncDefVisitor implements NodeVisitor {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
+            this.processExpressionStatement(s, builder, funcInfo, localVariables);
           }
           if (s.type === 'selection_statement') {
             this.processSelectionStatement(s, builder, funcInfo, localVariables);
@@ -194,7 +180,7 @@ export class FuncDefVisitor implements NodeVisitor {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
+            this.processExpressionStatement(s, builder, funcInfo, localVariables);
           }
           if (s.type === 'selection_statement') {
             this.processSelectionStatement(s, builder, funcInfo, localVariables);
@@ -217,17 +203,19 @@ export class FuncDefVisitor implements NodeVisitor {
     const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
-      this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
+      this.tokenizeIdentifier(i, builder, funcInfo, localVariables);
     })
   }
 
   private tokenizeIdentifier(
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
-    params: string[],
+    funcInfo: FunctionInfo,
     localVariables: Set<string>
   ) {
-    if (params.includes(node.text) && !localVariables.has(node.text)) {
+    const parameters = funcInfo.parameters.map(param => param.text);
+
+    if (parameters.includes(node.text) && !localVariables.has(node.text)) {
       addToken(node, builder, TokenTypes.Parameter)
     }
     else if (localVariables.has(node.text)) {
@@ -267,8 +255,8 @@ export class FunctionDefinitionRegistry {
    * @param {FunctionInfo} info The function informations to store 
    */
   public add(info: FunctionInfo): boolean {
-    if (!this.functions.has(info.name)) {
-      this.functions.set(info.name, info);
+    if (!this.functions.has(info.name.text)) {
+      this.functions.set(info.name.text, info);
       return true;
     }
     else {
