@@ -3,7 +3,7 @@ import { SemanticTokensBuilder } from "vscode-languageserver";
 import logger from "../../utils/logger";
 
 export interface VisitorContext {
-  semanticTokensBuilder?: SemanticTokensBuilder
+  semanticTokensBuilder: SemanticTokensBuilder
 }
 
 export interface NodeVisitor {
