@@ -2,7 +2,7 @@ import Parser from "tree-sitter";
 
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
-import { NodeVisitor, Scope, VisitorContext } from "./types";
+import { NodeVisitor, VisitorContext } from "./types";
 import { addToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
@@ -19,6 +19,11 @@ interface FunctionInfo {
   parameterNodes: Parser.SyntaxNode[]
 }
 
+enum Scope {
+  FunctionBody,
+  SelectionStatementConsequence
+}
+
 export class FuncDefVisitor implements NodeVisitor {
 
   /**
@@ -33,38 +38,9 @@ export class FuncDefVisitor implements NodeVisitor {
       const functionInfo = this.processSignature(node, builder);
       if (functionInfo) {
         const localVariables = new Set<string>();
-
-        const funcScope = new Scope(null);
-        this.collectTopLevelVariables(node, functionInfo, localVariables, funcScope);
-        this.processFunctionBody(node, builder, functionInfo, localVariables, funcScope);
+        this.processFunctionBody(node, builder, functionInfo, localVariables);
       }
     }
-  }
-
-  private collectTopLevelVariables(node: Parser.SyntaxNode, functionInfo: FunctionInfo, localVariables: Set<string>, scope: Scope) {
-
-    const bodyNode = node.childForFieldName('body');
-    if (!bodyNode) { return };
-
-    const statements = bodyNode.childForFieldName('statements');
-    if (!statements) { return };
-
-    statements.children.forEach(n => {
-      if (n.type === 'expression_statement') {
-        const statement = n.firstChild;
-        if (!statement) { return };
-
-        const isAssignment = statement.type === 'single_assignment' || statement.type === 'multiple_assignment';
-        if (!isAssignment) { return };
-
-        const left = statement.childrenForFieldName('left')
-
-        left.forEach(n => {
-          scope.add(n.text);
-          logger.debug(`Added top level variable -> ${n.text}`)
-        })
-      }
-    });
   }
 
   /**
@@ -106,7 +82,7 @@ export class FuncDefVisitor implements NodeVisitor {
     return functionInfo;
   }
 
-  private processFunctionBody(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, funcInfo: FunctionInfo, localVariables: Set<string>, scope: Scope) {
+  private processFunctionBody(node: Parser.SyntaxNode, builder: SemanticTokensBuilder, funcInfo: FunctionInfo, localVariables: Set<string>) {
 
     const bodyNode = node.childForFieldName('body');
     if (!bodyNode) { return };
@@ -116,13 +92,13 @@ export class FuncDefVisitor implements NodeVisitor {
 
     statements.children.forEach(n => {
       if (n.type === 'expression_statement') {
-        this.processExpressionStatement(n, builder, funcInfo, localVariables, scope);
+        this.processExpressionStatement(n, builder, funcInfo, localVariables, Scope.FunctionBody);
       }
       if (n.type === 'selection_statement') {
-        this.processSelectionStatement(n, builder, funcInfo, localVariables, scope);
+        this.processSelectionStatement(n, builder, funcInfo, localVariables);
       }
       if (n.type === 'return_statement') {
-        this.processReturnStatement(n, builder, funcInfo, localVariables, scope)
+        this.processReturnStatement(n, builder, funcInfo, localVariables)
       }
     })
   }
@@ -148,25 +124,36 @@ export class FuncDefVisitor implements NodeVisitor {
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables, scope);
+        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
       })
     })
 
-    // Handle left side (local variables)
-    left.forEach(n => {
-      if (scope.has(n.text)) {
+    if (scope === Scope.FunctionBody) {
+      // Handle left side (local variables)
+      left.forEach(n => {
+        localVariables.add(n.text);
         addToken(n, builder, TokenTypes.Variable)
-      }
-    })
+      })
+    }
 
+    else if (scope === Scope.SelectionStatementConsequence) {
+      left.forEach(n => {
+        if (!funcInfo.parameters.includes(n.text) && !localVariables.has(n.text)) {
+          addToken(n, builder, TokenTypes.Comment);
+        }
+        else if (funcInfo.parameters.includes(n.text)) {
+          localVariables.add(n.text);
+          this.tokenizeIdentifier(n, builder, funcInfo.parameters, localVariables);
+        }
+      })
+    }
   }
 
   private processSelectionStatement(
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     funcInfo: FunctionInfo,
-    localVariables: Set<string>,
-    scope: Scope
+    localVariables: Set<string>
   ) {
 
     const conditionNode = node.childForFieldName('condition')
@@ -175,26 +162,24 @@ export class FuncDefVisitor implements NodeVisitor {
     conditionNode.children.forEach(n => {
       const ids = collectIdentifiers(n);
       ids.forEach(i => {
-        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables, scope);
+        this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
       })
     })
 
     const consequenceNode = node.childrenForFieldName('consequence');
     if (!consequenceNode) { return };
 
-    const consequenceScope = new Scope(scope);
-
     consequenceNode.forEach(n => {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, localVariables, consequenceScope);
+            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
           }
           if (s.type === 'selection_statement') {
-            this.processSelectionStatement(s, builder, funcInfo, localVariables, consequenceScope);
+            this.processSelectionStatement(s, builder, funcInfo, localVariables);
           }
           if (s.type === 'return_statement') {
-            this.processReturnStatement(s, builder, funcInfo, localVariables, consequenceScope);
+            this.processReturnStatement(s, builder, funcInfo, localVariables);
           }
         })
       }
@@ -205,19 +190,17 @@ export class FuncDefVisitor implements NodeVisitor {
     const alternativeNode = node.childrenForFieldName('alternative');
     if (!alternativeNode) { return };
 
-    const alternativeScope = new Scope(scope);
-
     alternativeNode.forEach(n => {
       if (n.type === 'expr_statement_list') {
         n.children.forEach(s => {
           if (s.type === 'expression_statement') {
-            this.processExpressionStatement(s, builder, funcInfo, localVariables, alternativeScope);
+            this.processExpressionStatement(s, builder, funcInfo, localVariables, Scope.SelectionStatementConsequence);
           }
           if (s.type === 'selection_statement') {
-            this.processSelectionStatement(s, builder, funcInfo, localVariables, alternativeScope);
+            this.processSelectionStatement(s, builder, funcInfo, localVariables);
           }
           if (s.type === 'return_statement') {
-            this.processReturnStatement(s, builder, funcInfo, localVariables, alternativeScope);
+            this.processReturnStatement(s, builder, funcInfo, localVariables);
           }
         })
       }
@@ -228,14 +211,13 @@ export class FuncDefVisitor implements NodeVisitor {
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     funcInfo: FunctionInfo,
-    localVariables: Set<string>,
-    scope: Scope
+    localVariables: Set<string>
   ) {
 
     const identifiers = collectIdentifiers(node);
 
     identifiers.forEach(i => {
-      this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables, scope);
+      this.tokenizeIdentifier(i, builder, funcInfo.parameters, localVariables);
     })
   }
 
@@ -243,13 +225,12 @@ export class FuncDefVisitor implements NodeVisitor {
     node: Parser.SyntaxNode,
     builder: SemanticTokensBuilder,
     params: string[],
-    localVariables: Set<string>,
-    scope: Scope
+    localVariables: Set<string>
   ) {
-    if (params.includes(node.text) && !scope.has(node.text)) {
+    if (params.includes(node.text) && !localVariables.has(node.text)) {
       addToken(node, builder, TokenTypes.Parameter)
     }
-    else if (scope.has(node.text)) {
+    else if (localVariables.has(node.text)) {
       addToken(node, builder, TokenTypes.Variable);
     }
     else {
