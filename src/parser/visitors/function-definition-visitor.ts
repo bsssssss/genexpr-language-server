@@ -118,7 +118,7 @@ export class FunctionDefinitionVisitor {
     node.children.forEach(n => {
       if (n.type === 'identifier') {
         scope.add(n.text);
-        this.tokenizeIdentifier(n, context, funcInfo, scope);
+        this.tokenize(n, context, funcInfo, scope);
       }
     })
   }
@@ -143,14 +143,14 @@ export class FunctionDefinitionVisitor {
     right.forEach(n => {
       const rightIds = this.collectIdentifiers(n);
       rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, context, funcInfo, scope);
+        this.tokenize(i, context, funcInfo, scope);
       })
     })
 
     // Handle left side (local variables)
     left.forEach(i => {
       scope.add(i.text);
-      this.tokenizeIdentifier(i, context, funcInfo, scope);
+      this.tokenize(i, context, funcInfo, scope);
     })
   }
 
@@ -167,14 +167,14 @@ export class FunctionDefinitionVisitor {
 
     // Simple statement
     if (conditionNode.type === 'identifier' || conditionNode.type === 'inlet_outlet') {
-      this.tokenizeIdentifier(conditionNode, context, funcInfo, parentScope);
+      this.tokenize(conditionNode, context, funcInfo, parentScope);
     }
     // Expression
     else {
       conditionNode.children.forEach(n => {
         const ids = this.collectIdentifiers(n);
         ids.forEach(i => {
-          this.tokenizeIdentifier(i, context, funcInfo, parentScope);
+          this.tokenize(i, context, funcInfo, parentScope);
         })
       })
     }
@@ -257,7 +257,7 @@ export class FunctionDefinitionVisitor {
     })
   }
 
-  private tokenizeIdentifier(
+  private tokenize(
     node: Parser.SyntaxNode,
     context: VisitorContext,
     funcInfo: FunctionInfo,
