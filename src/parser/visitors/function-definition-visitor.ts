@@ -3,7 +3,7 @@ import Parser from "tree-sitter";
 import { SemanticTokensBuilder } from "vscode-languageserver";
 
 import { NodeVisitor, Scope, VisitorContext } from "./types";
-import { pushToken, collectIdentifiers, TokenModifiers, TokenTypes } from "../semanticTokens";
+import { pushToken, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
 /*
@@ -30,8 +30,6 @@ export class FuncDefVisitor implements NodeVisitor {
    * 
    **/
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
-
-    const builder = context.semanticTokensBuilder;
     const functionInfo = this.processSignature(node, context);
 
     if (functionInfo) {
@@ -143,7 +141,7 @@ export class FuncDefVisitor implements NodeVisitor {
 
     // Handle right side of assignement
     right.forEach(n => {
-      const rightIds = collectIdentifiers(n);
+      const rightIds = this.collectIdentifiers(n);
       rightIds.forEach(i => {
         this.tokenizeIdentifier(i, context, funcInfo, scope);
       })
@@ -151,6 +149,7 @@ export class FuncDefVisitor implements NodeVisitor {
 
     // Handle left side (local variables)
     left.forEach(i => {
+      logger.debug(`Found variable declaration -> ${i.text}`);
       scope.add(i.text);
       this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
@@ -172,7 +171,7 @@ export class FuncDefVisitor implements NodeVisitor {
     }
     else {
       conditionNode.children.forEach(n => {
-        const ids = collectIdentifiers(n);
+        const ids = this.collectIdentifiers(n);
         ids.forEach(i => {
           this.tokenizeIdentifier(i, context, funcInfo, parentScope);
         })
@@ -233,7 +232,7 @@ export class FuncDefVisitor implements NodeVisitor {
     funcInfo: FunctionInfo,
     scope: Scope
   ) {
-    const identifiers = collectIdentifiers(node);
+    const identifiers = this.collectIdentifiers(node);
     const parameters = funcInfo.parameters.map(p => p.text);
 
     identifiers.forEach(i => {
@@ -283,6 +282,22 @@ export class FuncDefVisitor implements NodeVisitor {
     }
 
   }
+
+  /*
+   * @description Recursively collect all identifiers and inlet_outlet nodes.
+   */
+  private collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
+  let identifiers: Parser.SyntaxNode[] = [];
+  if (node.type === 'identifier' || node.type === 'inlet_outlet') {
+    identifiers.push(node);
+  }
+  for (const child of node.children) {
+    if (child) {
+      identifiers = identifiers.concat(this.collectIdentifiers(child));
+    }
+  }
+  return identifiers;
+}
 }
 
 export class FunctionDefinitionRegistry {
@@ -301,7 +316,7 @@ export class FunctionDefinitionRegistry {
   }
 
   /**
-   * @description Clear all stored functions infos
+   * @description Clear all stored functions
    */
   public clear(): void {
     this.functions.clear();
@@ -362,3 +377,6 @@ export class FunctionDefinitionRegistry {
  * @description The instance of the function declarations registry
  */
 export const functionDefinitionRegistry = FunctionDefinitionRegistry.getInstance();
+
+
+
