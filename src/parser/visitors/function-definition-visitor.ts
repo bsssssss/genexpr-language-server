@@ -32,7 +32,7 @@ export class FuncDefVisitor implements NodeVisitor {
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
 
     const builder = context.semanticTokensBuilder;
-    const functionInfo = this.processSignature(node, builder);
+    const functionInfo = this.processSignature(node, context);
 
     if (functionInfo) {
       const functionScope = new Scope(null);
@@ -44,7 +44,7 @@ export class FuncDefVisitor implements NodeVisitor {
    * @description Handle the signature (ie. header) part of the function definition
    *
    **/
-  private processSignature(node: Parser.SyntaxNode, builder: SemanticTokensBuilder) {
+  private processSignature(node: Parser.SyntaxNode, context: VisitorContext) {
 
     const name = node.childForFieldName('name');
     if (!name) { return }
@@ -68,6 +68,7 @@ export class FuncDefVisitor implements NodeVisitor {
     }
 
     // If the function was stored, tokenize name and params
+    const builder = context.semanticTokensBuilder;
     pushToken(name, builder, TokenTypes.Function, TokenModifiers.Definition);
     parameters.forEach(n => {
       pushToken(n, builder, TokenTypes.Parameter, TokenModifiers.Definition);
