@@ -1,15 +1,15 @@
 import Parser from "tree-sitter";
 
-import { SemanticTokensBuilder } from "vscode-languageserver";
-
-import { NodeVisitor, Scope, VisitorContext } from "./types";
+import { Scope, VisitorContext } from "./types";
 import { pushToken, TokenModifiers, TokenTypes } from "../semanticTokens";
 import logger from "../../utils/logger"
 
 /*
  * This module implements the analysis of function definitions 
- * TODO: Diagnostics
- *       More storage in FunctionInfo ?
+ *
+ * TODO: 
+ *    - Iteration statements
+ *    - Diagnostics
  */
 
 interface FunctionInfo {
@@ -23,10 +23,10 @@ interface FunctionInfo {
   }>
 }
 
-export class FuncDefVisitor implements NodeVisitor {
+export class FunctionDefinitionVisitor {
 
   /**
-   * @description Handle the analysis of a function definition
+   * @description Process function definition node
    * 
    **/
   visit(node: Parser.SyntaxNode, context: VisitorContext): void {
@@ -288,17 +288,17 @@ export class FuncDefVisitor implements NodeVisitor {
    * @description Recursively collect all identifiers and inlet_outlet nodes.
    */
   private collectIdentifiers(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
-  let identifiers: Parser.SyntaxNode[] = [];
-  if (node.type === 'identifier' || node.type === 'inlet_outlet') {
-    identifiers.push(node);
-  }
-  for (const child of node.children) {
-    if (child) {
-      identifiers = identifiers.concat(this.collectIdentifiers(child));
+    let identifiers: Parser.SyntaxNode[] = [];
+    if (node.type === 'identifier' || node.type === 'inlet_outlet') {
+      identifiers.push(node);
     }
+    for (const child of node.children) {
+      if (child) {
+        identifiers = identifiers.concat(this.collectIdentifiers(child));
+      }
+    }
+    return identifiers;
   }
-  return identifiers;
-}
 }
 
 export class FunctionDefinitionRegistry {
