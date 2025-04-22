@@ -34,7 +34,7 @@ export function parseDocument(document: TextDocument) {
 
   for (const node of tree.rootNode.children) {
     if (node.type === 'compiler_command') {
-      logger.warn(`No implementation for ${node.type}`);
+      // logger.warn(`No implementation for ${node.type}`);
     }
     else if (node.type === 'function_declaration') {
       logger.debug(`Processing ${node.type}...`);
@@ -49,7 +49,7 @@ export function parseDocument(document: TextDocument) {
   //const funcs = JSON.stringify(funcDefRegistry.getAll(), null, 2);
   //logger.debug(`Collected function declarations:\n${funcs}`);
 
-  logger.emptyLine();
+  // logger.emptyLine();
 
   return {
     semanticTokens: tokensBuilder.build()

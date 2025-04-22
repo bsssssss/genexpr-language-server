@@ -24,7 +24,7 @@ export class MainVisitor {
   }
 
   visit(node: Parser.SyntaxNode, context: VisitorContext, scope: Scope) {
-    logger.debug(`Visiting node: ${node.type}`);
+    // logger.debug(`Visiting node: ${node.type}`);
 
     if (node.type === 'declaration') {
       this.processDeclaration(node, context, scope);
