@@ -58,7 +58,8 @@ export class Logger {
   }
   start(): void {
     this.emptyLine(2);
-    this.write(".".repeat(10) + " Server started " + ".".repeat(10), LogLevel.START);
+    this.write("Server started " + ".".repeat(30), LogLevel.START);
+    this.emptyLine();
   }
   debug(message: string): void {
     this.write(message, LogLevel.DEBUG);

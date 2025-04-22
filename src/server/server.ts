@@ -22,6 +22,7 @@ const documents = new TextDocuments(TextDocument);
 
 documents.onDidOpen((event) => {
   logger.info("A document was opened:\n" + event.document.uri);
+  logger.emptyLine();
 
   // Greetings 
   //connection.sendNotification('window/showMessage', {
