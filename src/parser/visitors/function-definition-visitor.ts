@@ -36,7 +36,6 @@ export class FuncDefVisitor implements NodeVisitor {
 
     if (functionInfo) {
       const functionScope = new Scope(null);
-
       this.processFunctionBody(node, context, functionInfo, functionScope);
     }
   }
@@ -57,9 +56,9 @@ export class FuncDefVisitor implements NodeVisitor {
         text: name.text,
         node: name
       },
-      parameters: parameters.map(node => ({
-        text: node.text,
-        node: node
+      parameters: parameters.map(n => ({
+        text: n.text,
+        node: n
       }))
     }
 
@@ -87,12 +86,18 @@ export class FuncDefVisitor implements NodeVisitor {
     const bodyNode = node.childForFieldName('body');
     if (!bodyNode) { return };
 
+    bodyNode.children.filter(n => n.type === 'declaration')
+      .forEach(d => {
+        this.processDeclaration(d, context, funcInfo, scope);
+      })
+
     const statements = bodyNode.childForFieldName('statements');
     if (!statements) { return };
 
     statements.children.forEach(n => {
       if (n.type === 'expression_statement') {
-        this.processMainScopeExpressions(n, context, funcInfo, scope);
+        // this.processMainScopeExpressions(n, context, funcInfo, scope);
+        this.processExpressionStatement(n, context, funcInfo, scope);
       }
       if (n.type === 'selection_statement') {
         this.processSelectionStatement(n, context, funcInfo, scope);
@@ -103,35 +108,19 @@ export class FuncDefVisitor implements NodeVisitor {
     })
   }
 
-  private processMainScopeExpressions(
+  // TODO: Make this a special variable 
+  //
+  private processDeclaration(
     node: Parser.SyntaxNode,
     context: VisitorContext,
     funcInfo: FunctionInfo,
-    scope: Scope,
+    scope: Scope
   ) {
-
-    const statement = node.firstChild;
-    if (!statement) { return };
-
-    const isAssignment = statement.type === 'single_assignment' || statement.type === 'multiple_assignment';
-    if (!isAssignment) { return };
-
-    const right = statement.childrenForFieldName('right')
-    const left = statement.childrenForFieldName('left')
-
-    // Handle right side
-    //
-    right.forEach(n => {
-      const rightIds = collectIdentifiers(n);
-      rightIds.forEach(i => {
-        this.tokenizeIdentifier(i, context, funcInfo, scope);
-      })
-    })
-
-    // Handle left side (local variables)
-    left.forEach(i => {
-      scope.add(i.text);
-      this.tokenizeIdentifier(i, context, funcInfo, scope);
+    node.children.forEach(n => {
+      if (n.type === 'identifier') {
+        scope.add(n.text);
+        this.tokenizeIdentifier(n, context, funcInfo, scope);
+      }
     })
   }
 
@@ -151,8 +140,7 @@ export class FuncDefVisitor implements NodeVisitor {
     const right = statement.childrenForFieldName('right')
     const left = statement.childrenForFieldName('left')
 
-    // Handle right side
-    //
+    // Handle right side of assignement
     right.forEach(n => {
       const rightIds = collectIdentifiers(n);
       rightIds.forEach(i => {
@@ -160,16 +148,9 @@ export class FuncDefVisitor implements NodeVisitor {
       })
     })
 
-    const parameters = funcInfo.parameters.map(p => p.text);
-
     // Handle left side (local variables)
     left.forEach(i => {
-      if (parameters.includes(i.text) || scope.has(i.text)) {
-        scope.add(i.text);
-      }
-      else {
-        // Error - Variable <i> not defined
-      }
+      scope.add(i.text);
       this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
   }
@@ -252,9 +233,26 @@ export class FuncDefVisitor implements NodeVisitor {
     scope: Scope
   ) {
     const identifiers = collectIdentifiers(node);
+    const parameters = funcInfo.parameters.map(p => p.text);
 
     identifiers.forEach(i => {
-      this.tokenizeIdentifier(i, context, funcInfo, scope);
+
+      if (parameters.includes(i.text)) {
+        if (scope.hasOwn(i.text)) {
+          pushToken(i, context.semanticTokensBuilder, TokenTypes.Variable);
+        }
+        else {
+          pushToken(i, context.semanticTokensBuilder, TokenTypes.Parameter);
+        }
+      }
+      else if (scope.has(i.text)) {
+        pushToken(i, context.semanticTokensBuilder, TokenTypes.Variable);
+      }
+      else {
+        // Error - variable <i> is not defined
+        pushToken(i, context.semanticTokensBuilder, TokenTypes.Comment);
+      }
+      // this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
   }
 
