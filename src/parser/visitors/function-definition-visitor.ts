@@ -149,7 +149,6 @@ export class FuncDefVisitor implements NodeVisitor {
 
     // Handle left side (local variables)
     left.forEach(i => {
-      logger.debug(`Found variable declaration -> ${i.text}`);
       scope.add(i.text);
       this.tokenizeIdentifier(i, context, funcInfo, scope);
     })
@@ -166,9 +165,11 @@ export class FuncDefVisitor implements NodeVisitor {
     const conditionNode = node.childForFieldName('condition')
     if (!conditionNode) { return };
 
-    if (conditionNode.type === 'identifier') {
+    // Simple statement
+    if (conditionNode.type === 'identifier' || conditionNode.type === 'inlet_outlet') {
       this.tokenizeIdentifier(conditionNode, context, funcInfo, parentScope);
     }
+    // Expression
     else {
       conditionNode.children.forEach(n => {
         const ids = this.collectIdentifiers(n);
